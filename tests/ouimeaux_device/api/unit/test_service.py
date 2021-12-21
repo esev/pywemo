@@ -1,4 +1,5 @@
 """Tests for pywemo.ouimeaux_device.api.service."""
+from __future__ import annotations
 
 import unittest.mock as mock
 
@@ -339,6 +340,16 @@ class TestService:
         device.session.get.assert_called_once()
 
 
+class MockRequiredService(svc.RequiredServicesMixin):
+    """Mock for the RequiredServicesMixin class."""
+
+    _attr_required_services: list[svc.RequiredService] = []
+
+    @property
+    def _required_services(self) -> list[svc.RequiredService]:
+        return self._attr_required_services
+
+
 class TestRequiredServicesMixin:
     """Tests for the RequiredServicesMixin class."""
 
@@ -346,15 +357,15 @@ class TestRequiredServicesMixin:
         service = mock.create_autospec(svc.Service)
         service.name = "svc_name"
         service.actions = {"action": mock.create_autospec(svc.Action)}
-        mixin = svc.RequiredServicesMixin()
-        mixin._required_services = [
+        mixin = MockRequiredService()
+        mixin._attr_required_services = [
             svc.RequiredService(name="svc_name", actions=["action"])
         ]
         mixin._check_required_services([service])
 
     def test_missing_service(self):
-        mixin = svc.RequiredServicesMixin()
-        mixin._required_services = [
+        mixin = MockRequiredService()
+        mixin._attr_required_services = [
             svc.RequiredService(name="svc_name", actions=["action"])
         ]
         with pytest.raises(svc.MissingServiceError):
@@ -364,8 +375,8 @@ class TestRequiredServicesMixin:
         service = mock.create_autospec(svc.Service)
         service.name = "svc_name"
         service.actions = {"some_action": mock.create_autospec(svc.Action)}
-        mixin = svc.RequiredServicesMixin()
-        mixin._required_services = [
+        mixin = MockRequiredService()
+        mixin._attr_required_services = [
             svc.RequiredService(name="svc_name", actions=["action"])
         ]
 

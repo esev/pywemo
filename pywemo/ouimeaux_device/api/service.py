@@ -1,11 +1,10 @@
 """Representation of Services and Actions for WeMo devices."""
-# flake8: noqa E501
 from __future__ import annotations
 
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List
+from typing import TYPE_CHECKING, Any, Iterable, cast
 from urllib.parse import urljoin, urlparse
 
 import urllib3
@@ -20,7 +19,11 @@ from pywemo.exceptions import (
     SOAPFault,
 )
 
+from .xsd import device as deviceParser
 from .xsd import service as serviceParser
+
+if TYPE_CHECKING:
+    from .. import Device
 
 LOG = logging.getLogger(__name__)
 REQUESTS_TIMEOUT = 10
@@ -34,7 +37,7 @@ REQUEST_TEMPLATE = """
 </u:{action}>
 </s:Body>
 </s:Envelope>
-"""
+"""  # noqa: E501
 
 
 class Session:
@@ -70,9 +73,14 @@ class Session:
     )
 
     # Seconds that a request can be idle before retrying.
-    timeout = 3
+    timeout = 3.0
 
-    def __init__(self, url, retries=None, timeout=None):
+    def __init__(
+        self,
+        url: str,
+        retries: int | None = None,
+        timeout: float | None = None,
+    ):
         """Create a session with the specified default parameters."""
         self.url = url
         if retries is not None:
@@ -84,9 +92,9 @@ class Session:
         self,
         method: str,
         url: str,
-        retries=None,
-        timeout=None,
-        **kwargs,
+        retries: int | None = None,
+        timeout: float | None = None,
+        **kwargs: Any,
     ) -> urllib3.HTTPResponse:
         """Send request and gather response.
 
@@ -125,11 +133,11 @@ class Session:
             response.content = response.data  # For `requests` compatibility.
             return response
 
-    def get(self, url: str, **kwargs) -> urllib3.HTTPResponse:
+    def get(self, url: str, **kwargs: Any) -> urllib3.HTTPResponse:
         """HTTP GET request."""
         return self.request('GET', url, **kwargs)
 
-    def post(self, url: str, **kwargs) -> urllib3.HTTPResponse:
+    def post(self, url: str, **kwargs: Any) -> urllib3.HTTPResponse:
         """HTTP POST request."""
         return self.request('POST', url, **kwargs)
 
@@ -148,7 +156,7 @@ class Session:
         parsed_url = urlparse(url)
         self._url = parsed_url.geturl()
         self._port = parsed_url.port or 80
-        self._host = parsed_url.hostname
+        self._host = parsed_url.hostname or ''
         return url
 
     @property
@@ -162,8 +170,8 @@ class Session:
         return self._host
 
 
-def _is_output_arg(arg):
-    direction = arg.get_direction()
+def _is_output_arg(arg: serviceParser.ArgumentType) -> bool:
+    direction = arg.get_direction()  # type: ignore
     return isinstance(direction, str) and direction.lower().strip() == 'out'
 
 
@@ -180,24 +188,27 @@ class Action:
 
     max_rediscovery_attempts = 3
 
-    def __init__(self, service, action_config):
+    def __init__(
+        self, service: Service, action_config: serviceParser.ActionType
+    ) -> None:
         """Create an instance of an Action."""
-        if not action_config.get_name():
+        name: str | None = action_config.get_name()  # type: ignore
+        if not name:
             raise InvalidSchemaError(
                 f"action.name element is missing: {service.name}"
             )
         self.service = service
         self._action_config = action_config
-        self.name = action_config.get_name()
+        self.name = name
         self.soap_action = f'{service.serviceType}#{self.name}'
         self.headers = {
             'Content-Type': 'text/xml',
             'SOAPACTION': f'"{self.soap_action}"',
         }
 
-        self.args = []
-        self.returns = []
-        arglist = action_config.get_argumentList()
+        self.args: list[serviceParser.ArgumentType] = []
+        self.returns: list[serviceParser.ArgumentType] = []
+        arglist = action_config.get_argumentList()  # type: ignore
         if arglist is not None:
             self.args.extend(
                 a.get_name()
@@ -210,7 +221,9 @@ class Action:
                 if _is_output_arg(a)
             )
 
-    def __call__(self, *, pywemo_timeout=None, **kwargs):
+    def __call__(
+        self, *, pywemo_timeout: float | None = None, **kwargs: Any
+    ) -> dict[str, str]:
         """Representations a method or function call."""
         arglist = '\n'.join(
             '<{0}>{1}</{0}>'.format(arg, value)
@@ -245,8 +258,8 @@ class Action:
                 last_exception = err
             else:
                 envelope = et.fromstring(response.content)
-                body = list(envelope)[0]
-                response_element = list(body)[0]
+                body_element = list(envelope)[0]
+                response_element = list(body_element)[0]
                 if (
                     response_element.tag
                     == "{http://schemas.xmlsoap.org/soap/envelope/}Fault"
@@ -269,7 +282,7 @@ class Action:
         LOG.error(msg)
         raise ActionException(msg) from last_exception
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a string representation of the Action."""
         return "<Action %s(%s)>" % (self.name, ", ".join(self.args))
 
@@ -285,7 +298,9 @@ class Service:
         "eventSubURL",
     )
 
-    def __init__(self, device, service):
+    def __init__(
+        self, device: 'Device', service: deviceParser.serviceType
+    ) -> None:
         """Create an instance of a Service."""
         for element in self._EXPECTED_ELEMENTS:
             if not getattr(service, f"get_{element}")():
@@ -295,11 +310,11 @@ class Service:
         self.name = self.serviceType.split(':')[-2]
         self.actions = {}
 
-        url = device.session.urljoin(service.get_SCPDURL())
+        url = device.session.urljoin(service.get_SCPDURL())  # type: ignore
         xml = device.session.get(url)
 
         try:
-            scpd = serviceParser.parseString(
+            scpd = serviceParser.parseString(  # type: ignore
                 xml.content, silence=True, print_warnings=False
             )
         except Exception as err:
@@ -313,21 +328,25 @@ class Service:
                 setattr(self, act.name, act)
 
     @property
-    def controlURL(self):
+    def controlURL(self) -> str:
         """Get the controlURL for interacting with this Service."""
-        return self.device.session.urljoin(self._config.get_controlURL())
+        return self.device.session.urljoin(
+            self._config.get_controlURL()  # type: ignore
+        )
 
     @property
-    def eventSubURL(self):
+    def eventSubURL(self) -> str:
         """Get the eventSubURL for interacting with this Service."""
-        return self.device.session.urljoin(self._config.get_eventSubURL())
+        return self.device.session.urljoin(
+            self._config.get_eventSubURL()  # type: ignore
+        )
 
     @property
-    def serviceType(self):
+    def serviceType(self) -> str:
         """Get the type of this Service."""
-        return self._config.get_serviceType()
+        return cast(str, self._config.get_serviceType())  # type: ignore
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a string representation of the Service."""
         return "<Service %s(%s)>" % (self.name, ", ".join(self.actions))
 
@@ -337,19 +356,23 @@ class RequiredService:
     """Specifies the service name and actions that are required for a class."""
 
     name: str
-    actions: List[str]
+    actions: list[str]
 
 
 class RequiredServicesMixin:
     """Provide and check for required services."""
 
-    _required_services: List[RequiredService] = []
+    @property
+    def _required_services(self) -> list[RequiredService]:
+        return []
 
-    def _check_required_services(self, services) -> None:
-        """Validates that all required services are found."""
+    def _check_required_services(self, services: Iterable[Service]) -> None:
+        """Validate that all required services are found."""
         all_services: dict[str, set[str]] = defaultdict(set)
-        for service in services:
-            all_services[service.name].update(service.actions)
+        for supported_service in services:
+            all_services[supported_service.name].update(
+                supported_service.actions
+            )
 
         missing_actions: dict[str, set[str]] = defaultdict(set)
 
