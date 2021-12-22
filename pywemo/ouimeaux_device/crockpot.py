@@ -1,5 +1,8 @@
 """Representation of a WeMo CrockPot device."""
+from __future__ import annotations
+
 from enum import IntEnum
+from typing import Any
 
 from .api.service import RequiredService
 from .switch import Switch
@@ -29,13 +32,13 @@ MODE_NAMES = {
 class CrockPot(Switch):
     """WeMo Crockpot."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo CrockPot device."""
-        Switch.__init__(self, *args, **kwargs)
-        self._attributes = {}
+        super().__init__(*args, **kwargs)
+        self._attributes: dict[str, str] = {}
 
     @property
-    def _required_services(self):
+    def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [
             RequiredService(
                 name="basicevent",
@@ -43,7 +46,7 @@ class CrockPot(Switch):
             ),
         ]
 
-    def update_attributes(self):
+    def update_attributes(self) -> None:
         """Request state from device."""
         state_attributes = self.basicevent.GetCrockpotState()
 
@@ -57,28 +60,25 @@ class CrockPot(Switch):
             self._attributes = state_attributes
             self._state = self.mode
 
-    def subscription_update(self, _type, _params):
+    def subscription_update(self, _type: str, _params: str) -> bool:
         """Handle reports from device."""
-        if _params is None:
-            return False
-
         if _type == "mode":
-            self._attributes['mode'] = str(_params)
+            self._attributes['mode'] = _params
             self._state = self.mode
             return True
         if _type == "time":
-            self._attributes['time'] = str(_params)
+            self._attributes['time'] = _params
             return True
         if _type == "cookedTime":
-            self._attributes['cookedTime'] = str(_params)
+            self._attributes['cookedTime'] = _params
             return True
 
-        return Switch.subscription_update(self, _type, _params)
+        return super().subscription_update(_type, _params)
 
     @property
-    def mode(self) -> int:
+    def mode(self) -> CrockPotMode:
         """Return the mode of the device."""
-        return int(self._attributes.get('mode'))
+        return CrockPotMode(int(self._attributes.get('mode', '0')))
 
     @property
     def mode_string(self) -> str:
@@ -88,14 +88,14 @@ class CrockPot(Switch):
     @property
     def remaining_time(self) -> int:
         """Return the remaining time in minutes."""
-        return int(self._attributes.get('time'))
+        return int(self._attributes.get('time', '0'))
 
     @property
     def cooked_time(self) -> int:
         """Return the cooked time in minutes."""
-        return int(self._attributes.get('cookedTime'))
+        return int(self._attributes.get('cookedTime', '0'))
 
-    def get_state(self, force_update=False):
+    def get_state(self, force_update: bool = False) -> int:
         """Return 0 if off and 1 if on."""
         # The base implementation using GetBinaryState doesn't work for
         # CrockPot (always returns 0) so use mode instead.
@@ -104,16 +104,16 @@ class CrockPot(Switch):
 
         return int(self.mode != CrockPotMode.Off)
 
-    def set_state(self, state):
+    def set_state(self, state: int) -> None:
         """Set the state of this device to on or off."""
         if state:
             self.update_settings(
-                CrockPotMode.High, int(self._attributes.get('time'))
+                CrockPotMode.High, int(self._attributes.get('time', '0'))
             )
         else:
             self.update_settings(CrockPotMode.Off, 0)
 
-    def update_settings(self, mode: CrockPotMode, time: int):
+    def update_settings(self, mode: CrockPotMode, time: int) -> None:
         """Update mode and cooking time."""
         self.basicevent.SetCrockpotState(mode=str(int(mode)), time=str(time))
 
