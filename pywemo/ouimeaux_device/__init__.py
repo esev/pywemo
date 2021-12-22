@@ -7,6 +7,7 @@ import subprocess
 import threading
 import time
 import warnings
+from typing import Any, Sequence, cast
 
 import requests
 from lxml import etree as et
@@ -28,6 +29,7 @@ from .api.service import (
     Service,
     Session,
 )
+from .api.wemo_services import WeMoServiceTypesMixin
 from .api.xsd import device as deviceParser
 
 LOG = logging.getLogger(__name__)
@@ -40,13 +42,13 @@ def parse_device_xml(xml_content: bytes) -> deviceParser.root:
     """Parse setup.xml into a Python xsd object."""
     try:
         try:
-            root = deviceParser.parseString(
+            root: deviceParser.root = deviceParser.parseString(  # type: ignore
                 xml_content, silence=True, print_warnings=False
             )
         except Exception as err:
             raise InvalidSchemaError("Could not parse schema") from err
 
-        device = root.get_device()
+        device: deviceParser.DeviceType = root.get_device()  # type: ignore
         if device is None:
             raise InvalidSchemaError("Missing root.device element")
         for required_element in (
@@ -60,9 +62,10 @@ def parse_device_xml(xml_content: bytes) -> deviceParser.root:
                 raise InvalidSchemaError(
                     f"Missing device element: {required_element}"
                 )
-        if device.get_manufacturer() != "Belkin International Inc.":
+        manufacturer: str = device.get_manufacturer()  # type: ignore
+        if manufacturer != "Belkin International Inc.":
             raise InvalidSchemaError(
-                f"Unexpected manufacturer: {device.get_manufacturer()}"
+                f"Unexpected manufacturer: {manufacturer}"
             )
     except InvalidSchemaError:
         LOG.debug("Received invalid schema: %r", xml_content)
@@ -71,8 +74,11 @@ def parse_device_xml(xml_content: bytes) -> deviceParser.root:
 
 
 def probe_wemo(
-    host, ports=PROBE_PORTS, probe_timeout=REQUESTS_TIMEOUT, match_udn=None
-):
+    host: str,
+    ports: Sequence[int] = PROBE_PORTS,
+    probe_timeout: float = REQUESTS_TIMEOUT,
+    match_udn: str | None = None,
+) -> int | None:
     """
     Probe a host for the current port.
 
@@ -98,7 +104,7 @@ def probe_wemo(
                 )
                 continue
             return port
-        except requests.ConnectTimeout:
+        except requests.exceptions.ConnectTimeout:
             # If we timed out connecting, then the wemo is gone,
             # no point in trying further.
             LOG.debug(
@@ -113,12 +119,12 @@ def probe_wemo(
             # respond. If that happens, we should keep searching.
             LOG.debug('No response from %s on port %i, continuing', host, port)
             continue
-        except requests.ConnectionError:
+        except requests.exceptions.ConnectionError:
             pass
     return None
 
 
-def probe_device(device):
+def probe_device(device: Device) -> int | None:
     """Probe a device for available port.
 
     This is an extension for probe_wemo, also probing current port.
@@ -131,7 +137,7 @@ def probe_device(device):
     return probe_wemo(device.host, ports, match_udn=device.udn)
 
 
-class Device(RequiredServicesMixin):
+class Device(RequiredServicesMixin, WeMoServiceTypesMixin):
     """Base object for WeMo devices."""
 
     def __init__(self, url: str, mac: str = 'deprecated') -> None:
@@ -142,8 +148,8 @@ class Device(RequiredServicesMixin):
                 "in a future release.",
                 DeprecationWarning,
             )
-        self._state = None
-        self.basic_state_params = {}
+        self._state: int | None = None
+        self.basic_state_params: dict[str, str] = {}
         self._reconnect_lock = threading.Lock()
         self.session = Session(url)
 
@@ -167,12 +173,12 @@ class Device(RequiredServicesMixin):
         self._check_required_services(self.services.values())
 
     @property
-    def _required_services(self):
+    def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [
             RequiredService(name="basicevent", actions=["GetBinaryState"])
         ]
 
-    def _reconnect_with_device_by_discovery(self):
+    def _reconnect_with_device_by_discovery(self) -> None:
         """
         Scan network to find the device again.
 
@@ -193,7 +199,7 @@ class Device(RequiredServicesMixin):
         else:
             LOG.error("Unable to reconnect with %s", self.name)
 
-    def _reconnect_with_device_by_probing(self):
+    def _reconnect_with_device_by_probing(self) -> bool:
         """Attempt to reconnect to the device on the existing port."""
         port = probe_device(self)
 
@@ -205,7 +211,7 @@ class Device(RequiredServicesMixin):
         self.session.url = f'http://{self.host}:{port}/setup.xml'
         return True
 
-    def reconnect_with_device(self):
+    def reconnect_with_device(self) -> None:
         """Re-probe & scan network to rediscover a disconnected device."""
         # Avoid retrying from multiple threads
         if not self._reconnect_lock.acquire(blocking=False):
@@ -217,7 +223,7 @@ class Device(RequiredServicesMixin):
             self._reconnect_lock.release()
 
     @staticmethod
-    def parse_basic_state(params):
+    def parse_basic_state(params: str) -> dict[str, str]:
         """Parse the basic state response from the device."""
         # The BinaryState `params` could have two different formats:
         #   1|1492338954|0|922|14195|1209600|0|940670|15213709|227088884
@@ -226,16 +232,18 @@ class Device(RequiredServicesMixin):
         # 0 if off, 1 if on,
         return {'state': params.split('|')[0]}
 
-    def update_binary_state(self):
+    def update_binary_state(self) -> None:
         """Update the cached copy of the basic state response."""
         self.basic_state_params = self.basicevent.GetBinaryState() or {}
 
-    def subscription_update(self, _type, _params):
+    def subscription_update(self, _type: str, _params: str) -> bool:
         """Update device state based on subscription event."""
         LOG.debug("subscription_update %s %s", _type, _params)
         if _type == "BinaryState":
             try:
-                self._state = int(self.parse_basic_state(_params).get("state"))
+                self._state = int(
+                    self.parse_basic_state(_params).get("state", "0")
+                )
             except ValueError:
                 LOG.error(
                     "Unexpected BinaryState value `%s` for device %s.",
@@ -245,7 +253,7 @@ class Device(RequiredServicesMixin):
             return True
         return False
 
-    def get_state(self, force_update=False):
+    def get_state(self, force_update: bool = False) -> int:
         """Return 0 if off and 1 if on."""
         if force_update or self._state is None:
             self.update_binary_state()
@@ -259,18 +267,18 @@ class Device(RequiredServicesMixin):
 
         return self._state
 
-    def get_service(self, name):
+    def get_service(self, name: str) -> Service:
         """Get service object by name."""
         try:
             return self.services[name]
         except KeyError as exc:
             raise UnknownService(name) from exc
 
-    def list_services(self):
+    def list_services(self) -> list[str]:
         """Return list of services."""
         return list(self.services.keys())
 
-    def explain(self):
+    def explain(self) -> None:
         """Print information about the device and its actions."""
         for name, svc in self.services.items():
             print(name)
@@ -285,7 +293,7 @@ class Device(RequiredServicesMixin):
                 print(f"  {aname}({inputs}){outputs}")
             print()
 
-    def reset(self, data, wifi):
+    def reset(self, data: bool, wifi: bool) -> str:
         """
         Reset Wemo device.
 
@@ -333,7 +341,7 @@ class Device(RequiredServicesMixin):
             raise ResetException('no action requested')
 
         try:
-            status = result['Reset'].strip().lower()
+            status: str = result['Reset'].strip().lower()
         except KeyError:
             status = 'unknown'
 
@@ -346,12 +354,14 @@ class Device(RequiredServicesMixin):
 
         return status
 
-    def factory_reset(self):
+    def factory_reset(self) -> str:
         """Perform a full factory reset (convenience method)."""
         return self.reset(data=True, wifi=True)
 
     @staticmethod
-    def encrypt_aes128(password, wemo_metadata, is_rtos):
+    def encrypt_aes128(
+        password: str, wemo_metadata: str, is_rtos: bool
+    ) -> str:
         """
         Encrypt a password using OpenSSL.
 
@@ -397,15 +407,15 @@ class Device(RequiredServicesMixin):
             ) from exc
         except subprocess.CalledProcessError as exc:
             try:
-                stdout = openssl.stdout.decode().strip()
-            except UnicodeDecodeError:
-                stdout = openssl.stdout
+                stdout = openssl.stdout.decode(
+                    errors='backslashreplace'
+                ).strip()
             except UnboundLocalError:
                 stdout = 'not available'
             try:
-                stderr = openssl.stderr.decode().strip()
-            except UnicodeDecodeError:
-                stderr = openssl.stderr
+                stderr = openssl.stderr.decode(
+                    errors='backslashreplace'
+                ).strip()
             except UnboundLocalError:
                 stderr = 'not available'
             LOG.error('stdout:\n%s', stdout)
@@ -436,7 +446,7 @@ class Device(RequiredServicesMixin):
             encrypted_password += f'{n_password:#04x}'[2:]
         return encrypted_password
 
-    def setup(self, *args, **kwargs):
+    def setup(self, *args: Any, **kwargs: Any) -> tuple[str, str]:
         """
         Connect Wemo to wifi network.
 
@@ -501,12 +511,12 @@ class Device(RequiredServicesMixin):
 
     def _setup(  # noqa: C901
         self,
-        ssid,
-        password,
-        timeout=20.0,
-        connection_attempts=1,
-        status_delay=1.0,
-    ):
+        ssid: str,
+        password: str,
+        timeout: float = 20.0,
+        connection_attempts: int = 1,
+        status_delay: float = 1.0,
+    ) -> tuple[str, str]:
         """
         Connect Wemo to wifi network.
 
@@ -561,7 +571,8 @@ class Device(RequiredServicesMixin):
             encrypted_password = ''
         else:
             # get the meta information of the device and encrypt the password
-            metainfo = self.get_service('metainfo').GetMetaInfo()['MetaInfo']
+            metainfo_service = self.get_service('metainfo')
+            metainfo = metainfo_service.GetMetaInfo()['MetaInfo']
             is_rtos = self._config_any.get('rtos', '0') == '1'
             encrypted_password = self.encrypt_aes128(
                 password, metainfo, is_rtos
@@ -595,7 +606,7 @@ class Device(RequiredServicesMixin):
                     status = result['PairingStatus']
                 except KeyError:
                     # print entire dictionary if PairingStatus doesn't exist
-                    status = result
+                    status = repr(result)
                 LOG.debug('pairing status (send %s): %s', i + 1, status)
                 if i == 0:
                     # only delay on the first call
@@ -603,7 +614,7 @@ class Device(RequiredServicesMixin):
 
             timeout_start = time.time()
             LOG.info('starting status checks (%s second timeout)', timeout)
-            status = None
+            status = ''
 
             # Make an initial, quicker check
             time.sleep(min(0.50, status_delay / 3.0))
@@ -643,7 +654,7 @@ class Device(RequiredServicesMixin):
             close_status = result['status']
         except KeyError:
             # print entire dictionary if status doesn't exist
-            close_status = result
+            close_status = repr(result)
         LOG.debug('network status: %s', status)
         LOG.debug('close status: %s', close_status)
 
@@ -710,34 +721,34 @@ class Device(RequiredServicesMixin):
         return self.session.port
 
     @property
-    def mac(self):
+    def mac(self) -> str:
         """Return the mac address from the device description."""
         return self._config.get_macAddress() or ""
 
     @property
-    def model(self):
+    def model(self) -> str:
         """Return the model description of the device."""
         return self._config.get_modelDescription() or ""
 
     @property
-    def model_name(self):
+    def model_name(self) -> str:
         """Return the model name of the device."""
-        return self._config.get_modelName()
+        return cast(str, self._config.get_modelName())
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return the name of the device."""
-        return self._config.get_friendlyName()
+        return cast(str, self._config.get_friendlyName())
 
     @property
-    def serialnumber(self):
+    def serialnumber(self) -> str:
         """Return the serial number of the device."""
         return self._config.get_serialNumber() or ""
 
     @property
     def udn(self) -> str:
         """Return the uPnP unique device name of the device."""
-        return self._config.get_UDN()
+        return cast(str, self._config.get_UDN())
 
     @property
     def device_type(self) -> str:
