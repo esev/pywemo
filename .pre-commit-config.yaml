@@ -33,6 +33,13 @@ repos:
         require_serial: true
         types: [python]
 
+      - id: mypy
+        name: mypy
+        language: system
+        entry: poetry run mypy
+        require_serial: true
+        types: [python]
+
       - id: pylint
         name: pylint
         language: system

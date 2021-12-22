@@ -112,7 +112,11 @@ warn_return_any = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = "pywemo.ouimeaux_device.api.xsd.*"
+module = [
+  "pywemo.ouimeaux_device.api.db_orm",
+  "pywemo.ouimeaux_device.api.rules_db",
+  "pywemo.ouimeaux_device.api.xsd.*"
+]
 ignore_errors = true
 
 [tool.pylint]
