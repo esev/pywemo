@@ -115,7 +115,8 @@ warn_unreachable = true
 module = [
   "pywemo.ouimeaux_device.api.db_orm",
   "pywemo.ouimeaux_device.api.rules_db",
-  "pywemo.ouimeaux_device.api.xsd.*"
+  "pywemo.ouimeaux_device.api.xsd.*",
+  "tests.*",
 ]
 ignore_errors = true
 
