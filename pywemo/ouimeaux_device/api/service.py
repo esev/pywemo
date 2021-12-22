@@ -19,6 +19,7 @@ from pywemo.exceptions import (
     SOAPFault,
 )
 
+from .wemo_services import WeMoAllActionsMixin
 from .xsd import device as deviceParser
 from .xsd import service as serviceParser
 
@@ -287,7 +288,7 @@ class Action:
         return "<Action %s(%s)>" % (self.name, ", ".join(self.args))
 
 
-class Service:
+class Service(WeMoAllActionsMixin):
     """Representation of a service for a WeMo device."""
 
     _EXPECTED_ELEMENTS = (
