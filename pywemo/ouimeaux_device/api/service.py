@@ -172,7 +172,7 @@ class Session:
 
 
 def _is_output_arg(arg: serviceParser.ArgumentType) -> bool:
-    direction = arg.get_direction()  # type: ignore
+    direction = arg.get_direction()
     return isinstance(direction, str) and direction.lower().strip() == 'out'
 
 
@@ -193,7 +193,7 @@ class Action:
         self, service: Service, action_config: serviceParser.ActionType
     ) -> None:
         """Create an instance of an Action."""
-        name: str | None = action_config.get_name()  # type: ignore
+        name: str | None = action_config.get_name()
         if not name:
             raise InvalidSchemaError(
                 f"action.name element is missing: {service.name}"
@@ -209,7 +209,7 @@ class Action:
 
         self.args: list[serviceParser.ArgumentType] = []
         self.returns: list[serviceParser.ArgumentType] = []
-        arglist = action_config.get_argumentList()  # type: ignore
+        arglist = action_config.get_argumentList()
         if arglist is not None:
             self.args.extend(
                 a.get_name()
@@ -311,11 +311,11 @@ class Service(WeMoAllActionsMixin):
         self.name = self.serviceType.split(':')[-2]
         self.actions = {}
 
-        url = device.session.urljoin(service.get_SCPDURL())  # type: ignore
+        url = device.session.urljoin(cast(str, service.get_SCPDURL()))
         xml = device.session.get(url)
 
         try:
-            scpd = serviceParser.parseString(  # type: ignore
+            scpd = serviceParser.parseString(
                 xml.content, silence=True, print_warnings=False
             )
         except Exception as err:
@@ -332,20 +332,20 @@ class Service(WeMoAllActionsMixin):
     def controlURL(self) -> str:
         """Get the controlURL for interacting with this Service."""
         return self.device.session.urljoin(
-            self._config.get_controlURL()  # type: ignore
+            cast(str, self._config.get_controlURL())
         )
 
     @property
     def eventSubURL(self) -> str:
         """Get the eventSubURL for interacting with this Service."""
         return self.device.session.urljoin(
-            self._config.get_eventSubURL()  # type: ignore
+            cast(str, self._config.get_eventSubURL())
         )
 
     @property
     def serviceType(self) -> str:
         """Get the type of this Service."""
-        return cast(str, self._config.get_serviceType())  # type: ignore
+        return cast(str, self._config.get_serviceType())
 
     def __repr__(self) -> str:
         """Return a string representation of the Service."""

@@ -42,13 +42,13 @@ def parse_device_xml(xml_content: bytes) -> deviceParser.root:
     """Parse setup.xml into a Python xsd object."""
     try:
         try:
-            root: deviceParser.root = deviceParser.parseString(  # type: ignore
+            root: deviceParser.root = deviceParser.parseString(
                 xml_content, silence=True, print_warnings=False
             )
         except Exception as err:
             raise InvalidSchemaError("Could not parse schema") from err
 
-        device: deviceParser.DeviceType = root.get_device()  # type: ignore
+        device = root.get_device()
         if device is None:
             raise InvalidSchemaError("Missing root.device element")
         for required_element in (
@@ -62,7 +62,7 @@ def parse_device_xml(xml_content: bytes) -> deviceParser.root:
                 raise InvalidSchemaError(
                     f"Missing device element: {required_element}"
                 )
-        manufacturer: str = device.get_manufacturer()  # type: ignore
+        manufacturer = device.get_manufacturer()
         if manufacturer != "Belkin International Inc.":
             raise InvalidSchemaError(
                 f"Unexpected manufacturer: {manufacturer}"

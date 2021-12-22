@@ -257,7 +257,7 @@ class Humidifier(Switch):
         """
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(  # type: ignore
+            attributeList=quote_xml(
                 "<attribute><name>FanMode</name><value>"
                 + str(fan_mode.value)
                 + "</value></attribute>"
@@ -271,7 +271,7 @@ class Humidifier(Switch):
         """Set the desired humidity."""
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(  # type: ignore
+            attributeList=quote_xml(
                 "<attribute><name>DesiredHumidity</name><value>"
                 + str(desired_humidity.value)
                 + "</value></attribute>"
@@ -287,7 +287,7 @@ class Humidifier(Switch):
         """Set the desired humidity and fan mode."""
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(  # type: ignore
+            attributeList=quote_xml(
                 "<attribute><name>FanMode</name><value>"
                 + str(fan_mode.value)
                 + "</value></attribute>"
@@ -304,7 +304,7 @@ class Humidifier(Switch):
         """Reset the filter life (call this when you install a new filter)."""
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(  # type: ignore
+            attributeList=quote_xml(
                 "<attribute><name>FilterLife</name><value>"
                 + str(FILTER_LIFE_MAX)
                 + "</value></attribute>"

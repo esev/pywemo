@@ -126,7 +126,7 @@ class CoffeeMaker(Switch):
             # Coffee Maker always responds with an error if SetBinaryState is
             # called. Use SetAttributes to change the Mode to "Brewing"
             self.deviceevent.SetAttributes(
-                attributeList=quote_xml(  # type: ignore
+                attributeList=quote_xml(
                     "<attribute><name>Mode</name><value>4</value></attribute>"
                 )
             )
