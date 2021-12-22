@@ -12,8 +12,10 @@ Usage:
   scripts/generate_wemo_services.py > \
       pywemo/ouimeaux_device/api/wemo_services.pyi
 """
+from __future__ import annotations
 
 import collections
+from typing import Iterable, cast
 
 import vcr
 from pywemo.ouimeaux_device.api.xsd import device as device_parser
@@ -52,10 +54,12 @@ from typing import Callable
 UPnPMethod = Callable[..., dict[str, str]]
 '''
 
-ALL_SERVICES = collections.defaultdict(set)
+ALL_SERVICES: dict[str, set[str]] = collections.defaultdict(set)
 
 
-def get_response_for_url_endswith(cassette, ending):
+def get_response_for_url_endswith(
+    cassette: vcr.cassette.Cassette, ending: str
+) -> bytes:
     """Fetch the response body for a url ending with 'ending'."""
     request = [
         request
@@ -63,10 +67,10 @@ def get_response_for_url_endswith(cassette, ending):
         if request.url.endswith(ending)
     ][0]
     response = cassette.responses_of(request)[0]
-    return response['body']['string']
+    return cast(bytes, response['body']['string'])
 
 
-def update_services_from_cassette(cassette_file_name):
+def update_services_from_cassette(cassette_file_name: str) -> None:
     """Populate ALL_SERVICES from the data found within a cassette."""
     cassette = vcr.cassette.Cassette.load(path=cassette_file_name)
     root = device_parser.parseString(
@@ -87,12 +91,12 @@ def update_services_from_cassette(cassette_file_name):
         )
 
 
-def class_name(service_name):
+def class_name(service_name: str) -> str:
     """Map service name to .pyi class name."""
     return f"Service_{service_name}"
 
 
-def output_service_as_class(service_name, actions):
+def output_service_as_class(service_name: str, actions: Iterable[str]) -> None:
     """Output a service class with actions as fields."""
     print(f"class {class_name(service_name)}:")
     for action in sorted(actions):
@@ -100,7 +104,7 @@ def output_service_as_class(service_name, actions):
     print("")
 
 
-def generate():
+def generate() -> None:
     """Output the Python type stub file to stdout."""
     print(FILE_HEADER)
 
