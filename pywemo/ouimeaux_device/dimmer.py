@@ -1,4 +1,8 @@
 """Representation of a WeMo Dimmer device."""
+from __future__ import annotations
+
+from typing import Any
+
 from .api.long_press import LongPressMixin
 from .api.service import RequiredService
 from .switch import Switch
@@ -7,23 +11,24 @@ from .switch import Switch
 class Dimmer(Switch):
     """Representation of a WeMo Dimmer device."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo Dimmer device."""
-        Switch.__init__(self, *args, **kwargs)
-        self._brightness = None
+        super().__init__(*args, **kwargs)
+        self._brightness: int | None = None
 
     @property
-    def _required_services(self):
+    def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [
             RequiredService(name="basicevent", actions=["SetBinaryState"]),
         ]
 
-    def get_brightness(self, force_update=False):
+    def get_brightness(self, force_update: bool = False) -> int:
         """Get brightness from device."""
         self.get_state(force_update)
+        assert self._brightness
         return self._brightness
 
-    def set_brightness(self, brightness):
+    def set_brightness(self, brightness: int) -> None:
         """Set the brightness of this device to an integer between 1-100."""
         value = int(brightness)
         # WeMo only supports values between 1-100. WeMo will ignore a 0
@@ -35,7 +40,7 @@ class Dimmer(Switch):
         else:
             self.off()
 
-    def get_state(self, force_update=False):
+    def get_state(self, force_update: bool = False) -> int:
         """Update the state & brightness for the Dimmer."""
         state = super().get_state(force_update)
         if force_update or self._brightness is None:
@@ -46,7 +51,7 @@ class Dimmer(Switch):
             self._brightness = brightness
         return state
 
-    def subscription_update(self, _type, _param):
+    def subscription_update(self, _type: str, _param: str) -> bool:
         """Update the dimmer attributes due to a subscription update event."""
         if _type == "Brightness":
             try:
