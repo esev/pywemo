@@ -1,5 +1,9 @@
 """Representation of a WeMo Humidifier device."""
+from __future__ import annotations
+
+from dataclasses import dataclass
 from enum import IntEnum
+from typing import Any
 
 from lxml import etree as et
 
@@ -70,47 +74,61 @@ WATER_LEVEL_NAMES = {
 FILTER_LIFE_MAX = 60480
 
 
-def attribute_xml_to_dict(xml_blob):  # noqa: 901
+@dataclass
+class Attributes:
+    """Humidifier attributes."""
+
+    current_humidity: float = 0.0
+    desired_humidity: DesiredHumidity = DesiredHumidity.FortyFivePercent
+    fan_mode: FanMode = FanMode.Off
+    filter_expired: bool = False
+    filter_life: float = 100.0
+    water_level: WaterLevel = WaterLevel.Good
+
+
+def attribute_xml_to_class(xml_blob: str) -> Attributes:  # noqa: 901
     """Return attribute values as a dict of key value pairs."""
     xml_blob = "<attributes>" + xml_blob + "</attributes>"
     xml_blob = xml_blob.replace("&gt;", ">")
     xml_blob = xml_blob.replace("&lt;", "<")
 
-    result = {}
+    result = Attributes()
 
     attributes = et.fromstring(xml_blob)
 
-    result["water_level"] = int(2)
+    result.water_level = WaterLevel.Good
 
     for attribute in attributes:
         if attribute[0].text == "FanMode":
             try:
-                result["fan_mode"] = int(attribute[1].text)
+                result.fan_mode = FanMode(int(attribute[1].text))
             except ValueError:
                 pass
         elif attribute[0].text == "DesiredHumidity":
             try:
-                result["desired_humidity"] = int(attribute[1].text)
+                result.desired_humidity = DesiredHumidity(
+                    int(attribute[1].text)
+                )
             except ValueError:
                 pass
         elif attribute[0].text == "CurrentHumidity":
             try:
-                result["current_humidity"] = float(attribute[1].text)
+                result.current_humidity = float(attribute[1].text)
             except ValueError:
                 pass
         elif attribute[0].text == "NoWater" and attribute[1].text == "1":
             try:
-                result["water_level"] = int(0)
+                result.water_level = WaterLevel.Empty
             except ValueError:
                 pass
         elif attribute[0].text == "WaterAdvise" and attribute[1].text == "1":
             try:
-                result["water_level"] = int(1)
+                result.water_level = WaterLevel.Low
             except ValueError:
                 pass
         elif attribute[0].text == "FilterLife":
             try:
-                result["filter_life"] = float(
+                result.filter_life = float(
                     round(
                         (float(attribute[1].text) / float(60480)) * float(100),
                         2,
@@ -120,7 +138,7 @@ def attribute_xml_to_dict(xml_blob):  # noqa: 901
                 pass
         elif attribute[0].text == "ExpiredFilterTime":
             try:
-                result["filter_expired"] = bool(int(attribute[1].text))
+                result.filter_expired = bool(int(attribute[1].text))
             except ValueError:
                 pass
 
@@ -130,43 +148,44 @@ def attribute_xml_to_dict(xml_blob):  # noqa: 901
 class Humidifier(Switch):
     """Representation of a WeMo Humidifier device."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo Humidifier device."""
-        Switch.__init__(self, *args, **kwargs)
-        self._attributes = {}
+        super().__init__(*args, **kwargs)
+        self._attributes = Attributes()
         self.update_attributes()
 
     @property
-    def _required_services(self):
+    def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [
             RequiredService(
                 name="deviceevent", actions=["GetAttributes", "SetAttributes"]
             ),
         ]
 
-    def update_attributes(self):
+    def update_attributes(self) -> None:
         """Request state from device."""
         resp = self.deviceevent.GetAttributes().get('attributeList')
-        self._attributes = attribute_xml_to_dict(resp)
+        assert resp
+        self._attributes = attribute_xml_to_class(resp)
         self._state = self.fan_mode
 
-    def subscription_update(self, _type, _params):
+    def subscription_update(self, _type: str, _params: str) -> bool:
         """Handle reports from device."""
         if _type == "attributeList":
-            self._attributes.update(attribute_xml_to_dict(_params))
+            self._attributes = attribute_xml_to_class(_params)
             self._state = self.fan_mode
 
             return True
 
-        return Switch.subscription_update(self, _type, _params)
+        return super().subscription_update(_type, _params)
 
     @property
-    def fan_mode(self):
-        """Return the FanMode setting (as an int index of the IntEnum)."""
-        return self._attributes.get('fan_mode')
+    def fan_mode(self) -> FanMode:
+        """Return the FanMode setting."""
+        return self._attributes.fan_mode
 
     @property
-    def fan_mode_string(self):
+    def fan_mode_string(self) -> str:
         """
         Return the FanMode setting as a string.
 
@@ -175,41 +194,41 @@ class Humidifier(Switch):
         return FAN_MODE_NAMES.get(self.fan_mode, "Unknown")
 
     @property
-    def desired_humidity(self):
-        """Return the desired humidity (as an int index of the IntEnum)."""
-        return self._attributes.get('desired_humidity')
+    def desired_humidity(self) -> DesiredHumidity:
+        """Return the desired humidity."""
+        return self._attributes.desired_humidity
 
     @property
-    def desired_humidity_percent(self):
-        """Return the desired humidity in percent (string)."""
+    def desired_humidity_percent(self) -> str:
+        """Return the desired humidity in percent."""
         return DESIRED_HUMIDITY_NAMES.get(self.desired_humidity, "Unknown")
 
     @property
-    def current_humidity_percent(self):
-        """Return the observed relative humidity in percent (float)."""
-        return self._attributes.get('current_humidity')
+    def current_humidity_percent(self) -> float:
+        """Return the observed relative humidity in percent."""
+        return self._attributes.current_humidity
 
     @property
-    def water_level(self):
-        """Return 0 if water level is Empty, 1 if Low, and 2 if Good."""
-        return self._attributes.get('water_level')
+    def water_level(self) -> WaterLevel:
+        """Return the WaterLevel."""
+        return self._attributes.water_level
 
     @property
-    def water_level_string(self):
+    def water_level_string(self) -> str:
         """Return Empty, Low, or Good depending on the water level."""
         return WATER_LEVEL_NAMES.get(self.water_level, "Unknown")
 
     @property
-    def filter_life_percent(self):
-        """Return the percentage (float) of filter life remaining."""
-        return self._attributes.get('filter_life')
+    def filter_life_percent(self) -> float:
+        """Return the percentage of filter life remaining."""
+        return self._attributes.filter_life
 
     @property
-    def filter_expired(self):
-        """Return 0 if filter is OK, and 1 if it needs to be changed."""
-        return self._attributes.get('filter_expired')
+    def filter_expired(self) -> bool:
+        """Return True if it needs to be changed."""
+        return self._attributes.filter_expired
 
-    def get_state(self, force_update=False):
+    def get_state(self, force_update: bool = False) -> int:
         """Return 0 if off and 1 if on."""
         # The base implementation using GetBinaryState
         # doesn't work for Humidifier (always returns 0)
@@ -220,25 +239,25 @@ class Humidifier(Switch):
         # Consider the Humidifier to be "on" if it's not off.
         return int(self._state != FanMode.Off)
 
-    def set_state(self, state):
+    def set_state(self, state: int) -> None:
         """
         Set the fan mode of this device (as int index of the FanMode IntEnum).
 
         Provided for compatibility with the Switch base class.
         """
-        self.set_fan_mode(state)
+        self.set_fan_mode(FanMode(state))
 
-    def set_fan_mode(self, fan_mode):
+    def set_fan_mode(self, fan_mode: FanMode) -> None:
         """
-        Set the fan mode of this device (as int index of the FanMode IntEnum).
+        Set the fan mode of this device.
 
         Provided for compatibility with the Switch base class.
         """
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(
+            attributeList=quote_xml(  # type: ignore
                 "<attribute><name>FanMode</name><value>"
-                + str(int(fan_mode))
+                + str(fan_mode.value)
                 + "</value></attribute>"
             )
         )
@@ -246,13 +265,13 @@ class Humidifier(Switch):
         # Refresh the device state
         self.get_state(True)
 
-    def set_humidity(self, desired_humidity):
-        """Set the desired humidity (as int index of the IntEnum)."""
+    def set_humidity(self, desired_humidity: DesiredHumidity) -> None:
+        """Set the desired humidity."""
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(
+            attributeList=quote_xml(  # type: ignore
                 "<attribute><name>DesiredHumidity</name><value>"
-                + str(int(desired_humidity))
+                + str(desired_humidity.value)
                 + "</value></attribute>"
             )
         )
@@ -260,20 +279,18 @@ class Humidifier(Switch):
         # Refresh the device state
         self.get_state(True)
 
-    def set_fan_mode_and_humidity(self, fan_mode, desired_humidity):
-        """
-        Set the desired humidity and fan mode.
-
-        (as int index of their respective IntEnums)
-        """
+    def set_fan_mode_and_humidity(
+        self, fan_mode: FanMode, desired_humidity: DesiredHumidity
+    ) -> None:
+        """Set the desired humidity and fan mode."""
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(
+            attributeList=quote_xml(  # type: ignore
                 "<attribute><name>FanMode</name><value>"
-                + str(int(fan_mode))
+                + str(fan_mode.value)
                 + "</value></attribute>"
                 + "<attribute><name>DesiredHumidity</name><value>"
-                + str(int(desired_humidity))
+                + str(desired_humidity.value)
                 + "</value></attribute>"
             )
         )
@@ -281,11 +298,11 @@ class Humidifier(Switch):
         # Refresh the device state
         self.get_state(True)
 
-    def reset_filter_life(self):
+    def reset_filter_life(self) -> None:
         """Reset the filter life (call this when you install a new filter)."""
         # Send the attribute list to the device
         self.deviceevent.SetAttributes(
-            attributeList=quote_xml(
+            attributeList=quote_xml(  # type: ignore
                 "<attribute><name>FilterLife</name><value>"
                 + str(FILTER_LIFE_MAX)
                 + "</value></attribute>"
