@@ -1,5 +1,8 @@
 """Representation of a WeMo CoffeeMaker device."""
+from __future__ import annotations
+
 from enum import IntEnum
+from typing import Any
 
 from lxml import etree as et
 
@@ -41,12 +44,12 @@ MODE_NAMES = {
 }
 
 
-def attribute_xml_to_dict(xml_blob):
+def attribute_xml_to_dict(xml_blob: str) -> dict[str, int]:
     """Return integer value of Mode from an attributesList blob, if present."""
     xml_blob = "<attributes>" + xml_blob + "</attributes>"
     xml_blob = xml_blob.replace("&gt;", ">")
     xml_blob = xml_blob.replace("&lt;", "<")
-    result = {}
+    result: dict[str, int] = {}
     attributes = et.fromstring(xml_blob)
     for attribute in attributes:
         # The coffee maker might also send unrelated xml blobs, e.g.:
@@ -64,45 +67,46 @@ def attribute_xml_to_dict(xml_blob):
 class CoffeeMaker(Switch):
     """Representation of a WeMo CoffeeMaker device."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo CoffeeMaker device."""
-        Switch.__init__(self, *args, **kwargs)
-        self._attributes = {}
+        super().__init__(*args, **kwargs)
+        self._attributes: dict[str, int] = {}
 
     @property
-    def _required_services(self):
+    def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [
             RequiredService(
                 name="deviceevent", actions=["GetAttributes", "SetAttributes"]
             ),
         ]
 
-    def update_attributes(self):
+    def update_attributes(self) -> None:
         """Request state from device."""
         resp = self.deviceevent.GetAttributes().get('attributeList')
+        assert resp
         self._attributes = attribute_xml_to_dict(resp)
         self._state = self.mode
 
-    def subscription_update(self, _type, _params):
+    def subscription_update(self, _type: str, _params: str) -> bool:
         """Handle reports from device."""
         if _type == "attributeList":
             self._attributes.update(attribute_xml_to_dict(_params))
             self._state = self.mode
             return True
 
-        return Switch.subscription_update(self, _type, _params)
+        return super().subscription_update(_type, _params)
 
     @property
-    def mode(self):
+    def mode(self) -> CoffeeMakerMode:
         """Return the mode of the device."""
-        return self._attributes.get('Mode')
+        return CoffeeMakerMode(self._attributes.get('Mode', 0))
 
     @property
-    def mode_string(self):
+    def mode_string(self) -> str:
         """Return the mode of the device as a string."""
         return MODE_NAMES.get(self.mode, "Unknown")
 
-    def get_state(self, force_update=False):
+    def get_state(self, force_update: bool = False) -> int:
         """Return 0 if off and 1 if on."""
         # The base implementation using GetBinaryState doesn't work for
         # CoffeeMaker (always returns 0), so use mode instead.
@@ -112,7 +116,7 @@ class CoffeeMaker(Switch):
         # Consider the Coffee Maker to be "on" if it's currently brewing.
         return int(self._state == CoffeeMakerMode.Brewing)
 
-    def set_state(self, state):
+    def set_state(self, state: int) -> None:
         """Set the state of this device to on or off."""
         # CoffeeMaker cannot be turned off remotely, so ignore the request if
         # state is "falsey"
@@ -120,7 +124,7 @@ class CoffeeMaker(Switch):
             # Coffee Maker always responds with an error if SetBinaryState is
             # called. Use SetAttributes to change the Mode to "Brewing"
             self.deviceevent.SetAttributes(
-                attributeList=quote_xml(
+                attributeList=quote_xml(  # type: ignore
                     "<attribute><name>Mode</name><value>4</value></attribute>"
                 )
             )
