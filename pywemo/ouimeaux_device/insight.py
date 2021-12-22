@@ -1,8 +1,12 @@
 """Representation of a WeMo Insight device."""
+from __future__ import annotations
+
 import logging
+import sys
 import warnings
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from .api.service import RequiredService
 from .switch import Switch
@@ -18,28 +22,59 @@ class StandbyState(str, Enum):
     STANDBY = "standby"
 
 
+_STANDBY_STATE_MAP = {
+    0: StandbyState.OFF,
+    1: StandbyState.ON,
+    8: StandbyState.STANDBY,
+}
+
+if sys.version_info >= (3, 8):
+    from typing import TypedDict
+
+    class InsightParams(TypedDict, total=False):
+        """Energy related parameters for Insight devices."""
+
+        state: StandbyState
+        lastchange: datetime
+        onfor: int
+        ontoday: int
+        ontotal: int
+        todaymw: int
+        totalmw: int
+        currentpower: int
+        wifipower: int
+        powerthreshold: int
+
+
+else:
+    from typing import Dict, Union
+
+    InsightParams = Dict[str, Union[StandbyState, datetime, int]]
+
+
 class Insight(Switch):
     """Representation of a WeMo Insight device."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo Switch device."""
-        Switch.__init__(self, *args, **kwargs)
-        self.insight_params = {}
+        super().__init__(*args, **kwargs)
+        self.insight_params: InsightParams = {}
 
         self.update_insight_params()
 
     @property
-    def _required_services(self):
+    def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [
             RequiredService(name="insight", actions=["GetInsightParams"]),
         ]
 
-    def update_insight_params(self):
+    def update_insight_params(self) -> None:
         """Get and parse the device attributes."""
         params = self.insight.GetInsightParams().get('InsightParams')
+        assert params
         self.insight_params = self.parse_insight_params(params)
 
-    def subscription_update(self, _type, _params):
+    def subscription_update(self, _type: str, _params: str) -> bool:
         """Update the device attributes due to a subscription update event."""
         LOG.debug("subscription_update %s %s", _type, _params)
         if _type == "InsightParams":
@@ -55,7 +90,7 @@ class Insight(Switch):
         return updated
 
     @staticmethod
-    def parse_insight_params(params):
+    def parse_insight_params(params: str) -> InsightParams:
         """Parse the Insight parameters."""
         (
             state,  # 0 if off, 1 if on, 8 if on but load is off
@@ -71,7 +106,7 @@ class Insight(Switch):
             powerthreshold,
         ) = params.split('|')
         return {
-            'state': state,
+            'state': _STANDBY_STATE_MAP.get(int(state), StandbyState.OFF),
             'lastchange': datetime.fromtimestamp(int(lastchange)),
             'onfor': int(onfor),
             'ontoday': int(ontoday),
@@ -83,12 +118,12 @@ class Insight(Switch):
             'powerthreshold': int(float(powerthreshold)),
         }
 
-    def get_state(self, force_update=False):
+    def get_state(self, force_update: bool = False) -> int:
         """Return the device state."""
         if force_update or self._state is None:
             self.update_insight_params()
 
-        return Switch.get_state(self, force_update)
+        return super().get_state(force_update)
 
     @property
     def today_kwh(self) -> float:
@@ -162,12 +197,4 @@ class Insight(Switch):
     @property
     def get_standby_state(self) -> StandbyState:
         """Return the standby state of the device."""
-        state = self.insight_params['state']
-
-        if state == '0':
-            return StandbyState.OFF
-
-        if state == '1':
-            return StandbyState.ON
-
-        return StandbyState.STANDBY
+        return self.insight_params['state']
