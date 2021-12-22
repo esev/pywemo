@@ -32,6 +32,10 @@ MODE_NAMES = {
 class CrockPot(Switch):
     """WeMo Crockpot."""
 
+    EVENT_TYPE_COOKED_TIME = "cookedTime"
+    EVENT_TYPE_MODE = "mode"
+    EVENT_TYPE_TIME = "time"
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo CrockPot device."""
         super().__init__(*args, **kwargs)
@@ -62,14 +66,14 @@ class CrockPot(Switch):
 
     def subscription_update(self, _type: str, _params: str) -> bool:
         """Handle reports from device."""
-        if _type == "mode":
+        if _type == self.EVENT_TYPE_MODE:
             self._attributes['mode'] = _params
             self._state = self.mode
             return True
-        if _type == "time":
+        if _type == self.EVENT_TYPE_TIME:
             self._attributes['time'] = _params
             return True
-        if _type == "cookedTime":
+        if _type == self.EVENT_TYPE_COOKED_TIME:
             self._attributes['cookedTime'] = _params
             return True
 

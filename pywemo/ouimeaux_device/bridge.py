@@ -45,6 +45,8 @@ class Bridge(Device):
     Lights: dict[str, Light] = {}
     Groups: dict[str, Group] = {}
 
+    EVENT_TYPE_STATUS_CHANGE = "StatusChange"
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo Bridge (Link) device."""
         super().__init__(*args, **kwargs)
@@ -114,7 +116,7 @@ class Bridge(Device):
 
     def subscription_update(self, _type: str, _param: str) -> bool:
         """Update the bridge attributes due to a subscription update event."""
-        if _type == "StatusChange" and _param:
+        if _type == self.EVENT_TYPE_STATUS_CHANGE and _param:
             state_event = et.fromstring(_param.encode('utf8'))
             key = state_event.findtext('DeviceID')
             if not key:
@@ -185,7 +187,7 @@ class LinkedDevice:
         self.bridge = bridge
         self.host = self.bridge.host
         self.port = self.bridge.port
-        self.name = None
+        self.name = ''
         self.state: DeviceState = {}
         self.capabilities: list[str] = []
         self._values: list[str] = []

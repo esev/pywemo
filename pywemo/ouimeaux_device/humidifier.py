@@ -148,6 +148,8 @@ def attribute_xml_to_class(xml_blob: str) -> Attributes:  # noqa: 901
 class Humidifier(Switch):
     """Representation of a WeMo Humidifier device."""
 
+    EVENT_TYPE_ATTRIBUTE_LIST = "attributeList"
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo Humidifier device."""
         super().__init__(*args, **kwargs)
@@ -171,7 +173,7 @@ class Humidifier(Switch):
 
     def subscription_update(self, _type: str, _params: str) -> bool:
         """Handle reports from device."""
-        if _type == "attributeList":
+        if _type == self.EVENT_TYPE_ATTRIBUTE_LIST:
             self._attributes = attribute_xml_to_class(_params)
             self._state = self.fan_mode
 

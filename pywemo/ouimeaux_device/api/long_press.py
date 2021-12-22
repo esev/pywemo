@@ -90,6 +90,8 @@ def ensure_long_press_rule_exists(
 class LongPressMixin(RequiredServicesMixin):
     """Methods to make changes to the long press rules for a device."""
 
+    EVENT_TYPE_LONG_PRESS = "LongPress"
+
     @property
     def _required_services(self) -> list[RequiredService]:
         return super()._required_services + [

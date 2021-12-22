@@ -67,6 +67,8 @@ def attribute_xml_to_dict(xml_blob: str) -> dict[str, int]:
 class CoffeeMaker(Switch):
     """Representation of a WeMo CoffeeMaker device."""
 
+    EVENT_TYPE_ATTRIBUTE_LIST = "attributeList"
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Create a WeMo CoffeeMaker device."""
         super().__init__(*args, **kwargs)
@@ -89,7 +91,7 @@ class CoffeeMaker(Switch):
 
     def subscription_update(self, _type: str, _params: str) -> bool:
         """Handle reports from device."""
-        if _type == "attributeList":
+        if _type == self.EVENT_TYPE_ATTRIBUTE_LIST:
             self._attributes.update(attribute_xml_to_dict(_params))
             self._state = self.mode
             return True
