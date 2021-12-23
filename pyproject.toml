@@ -82,7 +82,7 @@ exclude = '''
     | build
     | dist
   )/
-  | pywemo/ouimeaux_device/api/xsd
+  | pywemo/ouimeaux_device/api/xsd/
 )
 '''
 
@@ -126,6 +126,7 @@ ignore_errors = true
   max-line-length = 79
   ignore = "xsd"
   extension-pkg-whitelist = "lxml"
+  max-parents = 15
 
   [tool.pylint.message_control]
   disable = [

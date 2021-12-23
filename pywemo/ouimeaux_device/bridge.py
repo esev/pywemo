@@ -194,7 +194,7 @@ class LinkedDevice:
         self.update_state(info)
         self._last_err: dict[str, str] = {}
         self.mac = self.bridge.mac
-        self.serialnumber = self.bridge.serialnumber
+        self.serialnumber = self.bridge.serial_number
         self.uniqueID = ''
 
     def get_state(self, force_update: bool = False) -> DeviceState:

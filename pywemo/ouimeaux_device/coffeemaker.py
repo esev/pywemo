@@ -6,9 +6,8 @@ from typing import Any
 
 from lxml import etree as et
 
-from pywemo.ouimeaux_device.api.xsd.device import quote_xml
-
 from .api.service import RequiredService
+from .api.xsd_types import quote_xml
 from .switch import Switch
 
 

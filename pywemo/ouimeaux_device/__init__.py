@@ -7,10 +7,9 @@ import subprocess
 import threading
 import time
 import warnings
-from typing import Any, Sequence, cast
+from typing import Any, Sequence
 
 import requests
-from lxml import etree as et
 
 from ..exceptions import (
     ActionException,
@@ -30,47 +29,12 @@ from .api.service import (
     Session,
 )
 from .api.wemo_services import WeMoServiceTypesMixin
-from .api.xsd import device as deviceParser
+from .api.xsd_types import DeviceDescription
 
 LOG = logging.getLogger(__name__)
 
 # Start with the most commonly used port
 PROBE_PORTS = (49153, 49152, 49154, 49151, 49155, 49156, 49157, 49158, 49159)
-
-
-def parse_device_xml(xml_content: bytes) -> deviceParser.root:
-    """Parse setup.xml into a Python xsd object."""
-    try:
-        try:
-            root: deviceParser.root = deviceParser.parseString(
-                xml_content, silence=True, print_warnings=False
-            )
-        except Exception as err:
-            raise InvalidSchemaError("Could not parse schema") from err
-
-        device = root.get_device()
-        if device is None:
-            raise InvalidSchemaError("Missing root.device element")
-        for required_element in (
-            "deviceType",
-            "friendlyName",
-            "manufacturer",
-            "modelName",
-            "UDN",
-        ):
-            if not getattr(device, f"get_{required_element}")():
-                raise InvalidSchemaError(
-                    f"Missing device element: {required_element}"
-                )
-        manufacturer = device.get_manufacturer()
-        if manufacturer != "Belkin International Inc.":
-            raise InvalidSchemaError(
-                f"Unexpected manufacturer: {manufacturer}"
-            )
-    except InvalidSchemaError:
-        LOG.debug("Received invalid schema: %r", xml_content)
-        raise
-    return root
 
 
 def probe_wemo(
@@ -92,15 +56,15 @@ def probe_wemo(
                 f'http://{host}:{port}/setup.xml', timeout=probe_timeout
             )
             try:
-                device = parse_device_xml(response.content).device
+                device = DeviceDescription.from_xml(response.content)
             except InvalidSchemaError:
                 continue
-            if match_udn and match_udn != device.get_UDN():
+            if match_udn and match_udn != device.udn:
                 LOG.error(
                     'Reconnected to a different WeMo. '
                     'Expected %s / Received %s',
                     match_udn,
-                    device.get_UDN(),
+                    device.udn,
                 )
                 continue
             return port
@@ -137,7 +101,7 @@ def probe_device(device: Device) -> int | None:
     return probe_wemo(device.host, ports, match_udn=device.udn)
 
 
-class Device(RequiredServicesMixin, WeMoServiceTypesMixin):
+class Device(DeviceDescription, RequiredServicesMixin, WeMoServiceTypesMixin):
     """Base object for WeMo devices."""
 
     EVENT_TYPE_BINARY_STATE = "BinaryState"
@@ -154,24 +118,19 @@ class Device(RequiredServicesMixin, WeMoServiceTypesMixin):
         self.basic_state_params: dict[str, str] = {}
         self._reconnect_lock = threading.Lock()
         self.session = Session(url)
+        xml = self.session.get(url).content
 
-        xml = self.session.get(url)
-        self._config = parse_device_xml(xml.content).device
-
-        # The 'xs:any' values for the xs:complexType DeviceType in device.xsd.
-        xs_any = (et.fromstring(extra) for extra in self._config.anytypeobjs_)
-        self._config_any = {
-            et.QName(tag).localname: tag.text.strip()
-            for tag in xs_any
-            if tag.text and tag.text.strip()
-        }
+        try:
+            super().__init__(**DeviceDescription.dict_from_xml(xml))
+        except InvalidSchemaError:
+            LOG.debug("Received invalid schema from %s: %r", url, xml)
+            raise
 
         self.services = {}
-        if self._config.serviceList and self._config.serviceList.service:
-            for svc in self._config.serviceList.service:
-                service = Service(self, svc)
-                self.services[service.name] = service
-                setattr(self, service.name, service)
+        for svc in self._services:
+            service = Service(self, svc)
+            self.services[service.name] = service
+            setattr(self, service.name, service)
         self._check_required_services(self.services.values())
 
     @property
@@ -723,44 +682,19 @@ class Device(RequiredServicesMixin, WeMoServiceTypesMixin):
         return self.session.port
 
     @property
-    def mac(self) -> str:
-        """Return the mac address from the device description."""
-        return self._config.get_macAddress() or ""
-
-    @property
-    def model(self) -> str:
-        """Return the model description of the device."""
-        return self._config.get_modelDescription() or ""
-
-    @property
-    def model_name(self) -> str:
-        """Return the model name of the device."""
-        return cast(str, self._config.get_modelName())
-
-    @property
-    def name(self) -> str:
-        """Return the name of the device."""
-        return cast(str, self._config.get_friendlyName())
-
-    @property
     def serialnumber(self) -> str:
         """Return the serial number of the device."""
-        return self._config.get_serialNumber() or ""
-
-    @property
-    def udn(self) -> str:
-        """Return the uPnP unique device name of the device."""
-        return cast(str, self._config.get_UDN())
+        warnings.warn(
+            "serialnumber is deprecated and will be removed in a future "
+            "release. Use serial_number instead.",
+            DeprecationWarning,
+        )
+        return self.serial_number
 
     @property
     def device_type(self) -> str:
         """Return what kind of WeMo this device is."""
         return type(self).__name__
-
-    @property
-    def firmware_version(self) -> str:
-        """Return the device's firmware version."""
-        return self._config_any.get('firmwareVersion', '')
 
     def __repr__(self) -> str:
         """Return a string representation of the device."""

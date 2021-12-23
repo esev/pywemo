@@ -15,13 +15,9 @@ from .exceptions import (
     MissingServiceError,
     PyWeMoException,
 )
-from .ouimeaux_device import (
-    Device,
-    UnsupportedDevice,
-    parse_device_xml,
-    probe_wemo,
-)
+from .ouimeaux_device import Device, UnsupportedDevice, probe_wemo
 from .ouimeaux_device.api.service import REQUESTS_TIMEOUT
+from .ouimeaux_device.api.xsd_types import DeviceDescription
 from .ouimeaux_device.bridge import Bridge
 from .ouimeaux_device.coffeemaker import CoffeeMaker
 from .ouimeaux_device.crockpot import CrockPot
@@ -74,13 +70,12 @@ def device_from_description(
         return None
 
     try:
-        parsed = parse_device_xml(xml.content)
+        device = DeviceDescription.from_xml(xml.content)
     except PyWeMoException:
         LOG.exception("Failed to parse description %s", description_url)
         return None
 
-    uuid = parsed.device.UDN
-    return device_from_uuid_and_location(uuid, description_url, debug)
+    return device_from_uuid_and_location(device.udn, description_url, debug)
 
 
 def device_from_uuid_and_location(  # noqa: C901
