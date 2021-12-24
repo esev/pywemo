@@ -50,7 +50,11 @@ flake8
 
 echo
 echo "===Lint with pylint==="
-pylint pywemo
+pylint pywemo scripts
+
+echo
+echo "===Lint with mypy==="
+mypy .
 
 echo
 echo "===Test with pytest and coverage==="
