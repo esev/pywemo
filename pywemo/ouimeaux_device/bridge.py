@@ -160,7 +160,8 @@ class Bridge(Device):
 
 
 if sys.version_info >= (3, 8):
-    from typing import TypedDict
+    # Remove pylint disable when Python 3.7 support is removed.
+    from typing import TypedDict  # pylint: disable=no-name-in-module
 
     class DeviceState(TypedDict, total=False):
         """LinkedDevice state dictionary type."""
