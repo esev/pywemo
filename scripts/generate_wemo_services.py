@@ -18,8 +18,10 @@ import collections
 from typing import Iterable, cast
 
 import vcr
-from pywemo.ouimeaux_device.api.xsd import device as device_parser
-from pywemo.ouimeaux_device.api.xsd import service as service_parser
+from pywemo.ouimeaux_device.api.xsd_types import (
+    DeviceDescription,
+    ServiceDescription,
+)
 
 FIRMWARE_VCR_CASSETTE_FILES = [
     f"tests/vcr/tests.ouimeaux_device.test_{cassette}"
@@ -73,21 +75,17 @@ def get_response_for_url_endswith(
 def update_services_from_cassette(cassette_file_name: str) -> None:
     """Populate ALL_SERVICES from the data found within a cassette."""
     cassette = vcr.cassette.Cassette.load(path=cassette_file_name)
-    root = device_parser.parseString(
-        get_response_for_url_endswith(cassette, "/setup.xml"),
-        silence=True,
-        print_warnings=False,
+    device = DeviceDescription.from_xml(
+        get_response_for_url_endswith(cassette, "/setup.xml")
     )
 
-    for service in root.device.serviceList.service:
-        service_name = service.serviceType.split(':')[-2]
-        scpd = service_parser.parseString(
-            get_response_for_url_endswith(cassette, service.SCPDURL),
-            silence=True,
-            print_warnings=False,
+    for service in device._services:  # pylint: disable=protected-access
+        service_name = service.service_type.split(':')[-2]
+        scpd = ServiceDescription.from_xml(
+            get_response_for_url_endswith(cassette, service.description_url),
         )
         ALL_SERVICES[service_name].update(
-            action.name for action in scpd.actionList.action
+            action.name for action in scpd.actions
         )
 
 
