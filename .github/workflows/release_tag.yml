@@ -1,4 +1,4 @@
-name: Tag
+name: Create Release
 on:
   push:
     tags:
@@ -7,3 +7,36 @@ on:
 jobs:
   build:
     uses: ./.github/workflows/build.yml
+  create_release:
+    name: Create a draft release
+    runs-on: 'ubuntu-latest'
+    needs: build
+    steps:
+      - name: Add version to environment vars
+        run: |
+          . .venv/bin/activate
+          echo "PROJECT_VERSION=$(poetry version --short)" | tee -a $GITHUB_ENV
+      - name: Check if tag version matches project version
+        run: |
+          echo $GITHUB_REF_NAME
+          echo $PROJECT_VERSION
+          if [[ "$GITHUB_REF_NAME" != "$PROJECT_VERSION" ]]; then exit 1; fi
+      - name: Generate Checksums
+        run: |
+          cd dist
+          sha256sum pywemo-${PROJECT_VERSION}{-py3-none-any.whl,.tar.gz} > sha256sums.txt
+      - name: Release Notes
+        run: |
+          PREVIOUS_TAG=$(git describe HEAD~ --tags --abbrev=0)
+          git log ${PREVIOUS_TAG}..HEAD --pretty='format:* %h %s' --no-merges >> ".github/RELEASE-TEMPLATE.md"
+          echo "" >> ".github/RELEASE-TEMPLATE.md"
+          echo "**Full Changelog**: https://github.com/pywemo/pywemo/compare/${PREVIOUS_TAG}...${GITHUB_REF_NAME}" >> ".github/RELEASE-TEMPLATE.md"
+      - name: Create Release Draft
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: ".github/RELEASE-TEMPLATE.md"
+          draft: true
+          files: |
+            dist/pywemo-${{env.PROJECT_VERSION}}-py3-none-any.whl
+            dist/pywemo-${{env.PROJECT_VERSION}}.tar.gz
+            dist/sha256sums.txt
