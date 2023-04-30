@@ -34,11 +34,9 @@ jobs:
   coveralls:
     name: Indicate completion to coveralls.io
     needs: build
-    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
     - name: Coveralls Finished
       uses: coverallsapp/github-action@v2
       with:
         parallel-finished: true
-        carryforward: "run-3.11"
