@@ -23,15 +23,19 @@ jobs:
         uses: actions/github-script@v6
         with:
           retries: 5
+          debug: true
           result-encoding: string
           script: |
             try {
-              await octokit.rest.git.getRef({
+              const ref = await octokit.rest.git.getRef({
                 ...context.repo,
                 ref: "tags/${{ steps.version.outputs.version }}",
               });
+              octokit.log.info('ref', ref);
             } catch (error) {
+              octokit.log.info('error', error);
               if (error.status === 404) {
+                octokit.log.info('return empty string');
                 return "";
               }
             }
