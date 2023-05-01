@@ -44,7 +44,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: ${{ env.tag_name }} - ${{ env.TAG_MESSAGE }}
-          tag_name: ${{ env.tag_name }
+          tag_name: ${{ env.tag_name }}
           body_path: ".github/RELEASE-TEMPLATE.md"
           generate_release_notes: true
           fail_on_unmatched_files: true
