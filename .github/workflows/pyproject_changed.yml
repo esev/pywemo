@@ -17,13 +17,12 @@ jobs:
         uses: actions/checkout@v3
       - name: Parse version
         id: version
-        run: sed -ne 's/^version = "\([^"]\+\)"$/version=\1/p' pyproject.toml | tee -a "$GITHUB_OUTPUT"
+        run: sed -ne 's/^version = "\([^"]\+\)"$/version=\1/p' pyproject.toml | head -1 | tee -a "$GITHUB_OUTPUT"
       - name: Check for tag
         id: tag
         uses: actions/github-script@v6
         with:
           retries: 5
-          debug: true
           result-encoding: string
           script: |
             try {
@@ -31,11 +30,8 @@ jobs:
                 ...context.repo,
                 ref: "tags/${{ steps.version.outputs.version }}",
               });
-              github.log.info('ref', ref);
             } catch (error) {
-              github.log.info('error', error);
               if (error.status === 404) {
-                github.log.info('return empty string');
                 return "";
               }
             }
