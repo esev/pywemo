@@ -13,9 +13,7 @@ jobs:
     needs: build
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v3
       - name: Download build artifacts
         uses: actions/download-artifact@v3
         with:
@@ -24,8 +22,10 @@ jobs:
       - name: List dist files
         run: ls -R
         working-directory: dist
-      - name: Add version to environment vars
-        run: echo "PROJECT_VERSION=$(ls -1 dist/pywemo-*.tar.gz | sed -e 's/.*pywemo-\(.*\)\.tar\.gz/\1/')" | tee -a $GITHUB_ENV
+      - name: Add environment vars
+        run: |
+          echo "PROJECT_VERSION=$(ls -1 dist/pywemo-*.tar.gz | sed -e 's/.*pywemo-\(.*\)\.tar\.gz/\1/')" | tee -a $GITHUB_ENV
+          echo "TAG_MESSAGE=$(git tag -l $GITHUB_REF_NAME --format '%(contents:lines=1)')" | tee -a $GITHUB_ENV
       - name: Check if tag version matches project version
         run: |
           echo $GITHUB_REF_NAME
@@ -34,16 +34,13 @@ jobs:
       - name: Generate Checksums
         run: sha256sum pywemo-${PROJECT_VERSION}{-py3-none-any.whl,.tar.gz} > sha256sums.txt
         working-directory: dist
-      - name: Release Notes
-        run: |
-          PREVIOUS_TAG=$(git describe HEAD~ --tags --abbrev=0)
-          git log ${PREVIOUS_TAG}..HEAD --pretty='format:* %h %s' --no-merges >> ".github/RELEASE-TEMPLATE.md"
-          echo "" >> ".github/RELEASE-TEMPLATE.md"
-          echo "**Full Changelog**: https://github.com/pywemo/pywemo/compare/${PREVIOUS_TAG}...${GITHUB_REF_NAME}" >> ".github/RELEASE-TEMPLATE.md"
       - name: Create Release Draft
         uses: softprops/action-gh-release@v1
         with:
+          name: 
           body_path: ".github/RELEASE-TEMPLATE.md"
+          generate_release_notes: true
+          fail_on_unmatched_files: true
           draft: true
           files: |
             dist/pywemo-${{env.PROJECT_VERSION}}-py3-none-any.whl
