@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
 jobs:
   build:
     name: Build and test
@@ -15,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -28,6 +34,7 @@ jobs:
       - name: Report Coveralls
         uses: coverallsapp/github-action@v2
         with:
+          git-branch: ${{ inputs.ref || github.ref }}
           path-to-lcov: coverage.lcov
           flag-name: run-${{ join(matrix.*, '-') }}
           parallel: true
@@ -45,4 +52,5 @@ jobs:
     - name: Coveralls Finished
       uses: coverallsapp/github-action@v2
       with:
+        git-branch: ${{ inputs.ref || github.ref }}
         parallel-finished: true
