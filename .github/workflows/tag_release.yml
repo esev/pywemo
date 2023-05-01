@@ -1,0 +1,61 @@
+name: Tag Release
+on:
+  push:
+    branches:
+    - workflow_call
+    paths:
+      - pyproject.toml
+jobs:
+  check:
+    name: Check for a new release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.tag.outputs.result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Parse version
+        id: version
+        run: sed -ne 's/^version = "\([^"]\+\)"$/project-version=\1/p' pyproject.toml | tee -a "$GITHUB_OUTPUT"
+      - name: Check for tag
+        id: tag
+        uses: actions/github-script@v6
+        with:
+          retries: 5
+          result-encoding: string
+          script: |
+            try {
+              await octokit.rest.git.getRef({
+                ...context.repo,
+                ref: "tags/${{ steps.version.outputs.version }}",
+              });
+            } catch (error) {
+              if (error.status === 404) {
+                return "";
+              }
+            }
+            return "${{ steps.version.outputs.version }}";
+  create:
+    name: Create a new release tag
+    runs-on: 'ubuntu-latest'
+    needs: check
+    if: ${{ success() && needs.check.outputs.tag == '' }}
+    steps:
+      - name: Create release tag
+        uses: actions/github-script@v6
+        with:
+          retries: 5
+          script: |
+            const annotatedTag = await octokit.rest.git.createTag({
+              ...context.repo,
+              tag: "${{ needs.check.outputs.version }"
+              message: "${{ github.event.head_commit.message }}",
+              object: context.sha,
+              type: "commit",
+            });
+            return await octokit.rest.git.createRef({
+              ...context.repo,
+              ref: "refs/tags/${{ needs.check.outputs.version }",
+              sha: annotatedTag.data.sha
+            });
