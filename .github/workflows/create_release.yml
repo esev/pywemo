@@ -10,6 +10,7 @@ on:
         type: string
 jobs:
   build:
+    name: Build
     uses: ./.github/workflows/build.yml
   create_release:
     name: Create a draft release

@@ -1,4 +1,4 @@
-name: Tag Release
+name: PyProject
 on:
   push:
     branches:
@@ -64,6 +64,7 @@ jobs:
               sha: annotatedTag.data.sha,
             });
   create:
+    name: Create release
     needs: [check, tag]
     uses: ./.github/workflows/create_release.yml
     with:
