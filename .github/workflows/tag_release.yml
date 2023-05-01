@@ -49,13 +49,13 @@ jobs:
           script: |
             const annotatedTag = await octokit.rest.git.createTag({
               ...context.repo,
-              tag: "${{ needs.check.outputs.version }"
+              tag: "${{ needs.check.outputs.version }}"
               message: "${{ github.event.head_commit.message }}",
               object: context.sha,
               type: "commit",
             });
             return await octokit.rest.git.createRef({
               ...context.repo,
-              ref: "refs/tags/${{ needs.check.outputs.version }",
+              ref: "refs/tags/${{ needs.check.outputs.version }}",
               sha: annotatedTag.data.sha
             });
