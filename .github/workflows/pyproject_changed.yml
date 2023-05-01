@@ -1,10 +1,8 @@
 name: PyProject
 on:
   push:
-    branches:
-    - workflow_call
-    paths:
-      - pyproject.toml
+    branches: [workflow_call]
+    paths: [pyproject.toml]
 jobs:
   check:
     name: Check for a new release
