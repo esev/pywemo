@@ -27,15 +27,15 @@ jobs:
           result-encoding: string
           script: |
             try {
-              const ref = await octokit.rest.git.getRef({
+              const ref = await github.rest.git.getRef({
                 ...context.repo,
                 ref: "tags/${{ steps.version.outputs.version }}",
               });
-              octokit.log.info('ref', ref);
+              github.log.info('ref', ref);
             } catch (error) {
-              octokit.log.info('error', error);
+              github.log.info('error', error);
               if (error.status === 404) {
-                octokit.log.info('return empty string');
+                github.log.info('return empty string');
                 return "";
               }
             }
@@ -51,14 +51,14 @@ jobs:
         with:
           retries: 5
           script: |
-            const annotatedTag = await octokit.rest.git.createTag({
+            const annotatedTag = await github.rest.git.createTag({
               ...context.repo,
               tag: "${{ needs.check.outputs.version }}",
               message: "${{ github.event.head_commit.message }}",
               object: context.sha,
               type: "commit",
             });
-            return await octokit.rest.git.createRef({
+            return await github.rest.git.createRef({
               ...context.repo,
               ref: "refs/tags/${{ needs.check.outputs.version }}",
               sha: annotatedTag.data.sha,
