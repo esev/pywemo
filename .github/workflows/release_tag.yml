@@ -20,6 +20,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: dist-files-3.10
+          path: dist
+      - name: List dist files
+        run: ls -R
+        working-directory: dist
       - name: Add version to environment vars
         run: echo "PROJECT_VERSION=$(ls -1 dist/pywemo-*.tar.gz | sed -e 's/.*pywemo-\(.*\)\.tar\.gz/\1/')" | tee -a $GITHUB_ENV
       - name: Check if tag version matches project version
@@ -28,9 +32,8 @@ jobs:
           echo $PROJECT_VERSION
           if [[ "$GITHUB_REF_NAME" != "$PROJECT_VERSION" ]]; then exit 1; fi
       - name: Generate Checksums
-        run: |
-          cd dist
-          sha256sum pywemo-${PROJECT_VERSION}{-py3-none-any.whl,.tar.gz} > sha256sums.txt
+        run: sha256sum pywemo-${PROJECT_VERSION}{-py3-none-any.whl,.tar.gz} > sha256sums.txt
+        working-directory: dist
       - name: Release Notes
         run: |
           PREVIOUS_TAG=$(git describe HEAD~ --tags --abbrev=0)
