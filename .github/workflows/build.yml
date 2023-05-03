@@ -9,6 +9,8 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    env:
+      release-build: '3.10'
     strategy:
       max-parallel: 4
       matrix:
@@ -27,25 +29,13 @@ jobs:
           . .venv/bin/activate
           coverage lcov
       - name: Report Coveralls
+        if: ${{ matrix.python-version == env.release-build }}
         uses: coverallsapp/github-action@v2
         with:
           path-to-lcov: coverage.lcov
-          flag-name: run-${{ join(matrix.*, '-') }}
-          parallel: true
       - name: Archive build files
+        if: ${{ matrix.python-version == env.release-build }}
         uses: actions/upload-artifact@v3
         with:
-          name: dist-files-${{ matrix.python-version }}
           path: dist
           retention-days: 3
-  coveralls:
-    name: Indicate completion to coveralls.io
-    needs: build
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-    - name: Coveralls Finished
-      uses: coverallsapp/github-action@v2
-      with:
-        parallel-finished: true
-        carryforward: "run-3.11"
