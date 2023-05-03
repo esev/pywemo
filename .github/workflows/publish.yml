@@ -41,7 +41,7 @@ jobs:
     needs: check
     environment: release
     permissions:
-      id-token: write # For signing & PyPI trusted publishing
+      id-token: write # For Sigstore & PyPI trusted publishing
       contents: write # For adding assets to the github release
     steps:
       - name: Download build artifacts
@@ -57,8 +57,9 @@ jobs:
         working-directory: dist
         run: sha256sum * | tee sha256sums.txt
       - name: Sign the release
-        uses: sigstore/gh-action-sigstore-python@v1.2.3
+        uses: sigstore/gh-action-sigstore-python@e323e1b02e26cc6600843935562c862b94200b0c # v1.2.3
         with:
           inputs: ./dist/*
           staging: true
           release-signing-artifacts: true
+          bundle-only: true
