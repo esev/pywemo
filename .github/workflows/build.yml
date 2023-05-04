@@ -31,7 +31,7 @@ jobs:
           . .venv/bin/activate
           coverage lcov
       - name: Archive build files (Python 3.10 only)
-        if: ${{ success() && matrix.python-version == '3.10' }} 
+        if: ${{ success() && matrix.python-version == '3.10' }}
         uses: actions/upload-artifact@v3
         with:
           if-no-files-found: error
