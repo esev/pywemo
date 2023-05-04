@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - main
+    - pywemo_esev
   workflow_call:
 
 permissions:
