@@ -7,8 +7,7 @@ on:
     - pywemo_esev
   workflow_call:
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:
