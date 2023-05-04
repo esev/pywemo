@@ -52,7 +52,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: build-artifacts
-      - name: Report Coveralls
+      - name: Report to Coveralls
         uses: coverallsapp/github-action@v2
         with:
           path-to-lcov: coverage.lcov
