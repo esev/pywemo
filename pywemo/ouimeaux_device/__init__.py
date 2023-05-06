@@ -373,9 +373,12 @@ class Device(DeviceDescription, RequiredServicesMixin, WeMoServiceTypesMixin):
         except subprocess.CalledProcessError as exc:
             raise SetupException('openssl command failed') from exc
 
-        # remove 16byte magic and salt prefix inserted by OpenSSL, which is of
-        # the form "Salted__XXXXXXXX" before the actual password
-        encrypted_password = base64.b64encode(openssl.stdout[16:]).decode()
+        output = openssl.stdout
+        if output.startswith(b'Salted__'):
+            # remove 16byte magic and salt prefix inserted by OpenSSL, which
+            # is of the form "Salted__XXXXXXXX" before the actual password
+            output = output[16:]
+        encrypted_password = base64.b64encode(output).decode()
 
         # the last 4 digits that wemo expects is xxyy, where:
         #     xx: length of the encrypted password as hexadecimal
@@ -475,7 +478,7 @@ class Device(DeviceDescription, RequiredServicesMixin, WeMoServiceTypesMixin):
         """
         # a timeout of less than 20 is too short for many devices, so require
         # at least 20 seconds.
-        timeout = min(timeout, 15.0)
+        timeout = max(timeout, 20.0)
         status_delay = min(status_delay, timeout / 2.0)
         connection_attempts = int(max(1, connection_attempts))
 
