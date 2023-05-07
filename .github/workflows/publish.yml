@@ -31,7 +31,6 @@ jobs:
   provenance:
     name: Publish SLSA provenance
     needs: [build, check]
-    environment: release
     permissions:
       # Needed to detect the GitHub Actions environment
       actions: read
