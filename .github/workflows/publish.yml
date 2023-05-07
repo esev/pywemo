@@ -39,7 +39,7 @@ jobs:
       id-token: write
       # Needed to create and upload to GitHub Releases
       contents: write
-    uses: slsa-framework/slsa-github-builder/.github/workflows/generator_generic_slsa3.yml@v1.5.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.5.0
     with:
       # SHA-256 hashes of the Python distributions.
       subject-base64: ${{ needs.build.outputs.hashes }}
