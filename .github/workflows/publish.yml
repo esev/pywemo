@@ -43,7 +43,7 @@ jobs:
       # SHA-256 hashes of the Python distributions.
       base64-subjects: ${{ needs.build.outputs.hashes }}
       # Provenance file name.
-      provenance-name: pywemo-${{ needs.build.outputs.version }}.intoto.json
+      provenance-name: pywemo-${{ needs.build.outputs.version }}.intoto.jsonl
       # Uploads the provenance file to the GitHub Release.
       upload-assets: true
 
