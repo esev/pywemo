@@ -32,7 +32,8 @@ jobs:
     name: Publish SLSA provenance
     needs: [build, check]
     permissions:
-      contents: read
+      # Needed to write artifacts to the Github release.
+      contents: write
       # Needed to detect the GitHub Actions environment.
       actions: read
       # Needed to create the provenance via GitHub OIDC.
@@ -43,6 +44,8 @@ jobs:
       base64-subjects: ${{ needs.build.outputs.hashes }}
       # Provenance file name.
       provenance-name: pywemo-${{ needs.build.outputs.version }}.intoto.jsonl
+      # Upload the provenance file to the release.
+      upload-assets: true
 
   assets:
     name: Publish release assets
@@ -56,11 +59,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: dist
-          path: dist
-      - name: Download provenance
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ needs.provenance.outputs.provenance-name }}
           path: dist
       - name: Output hashes
         working-directory: dist
