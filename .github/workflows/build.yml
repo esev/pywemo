@@ -13,6 +13,10 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    outputs:
+      coverage-lcov: ${{ steps.build.outputs.coverage-lcov }}
+      hashes: ${{ steps.build.outputs.hashes }}
+      version: ${{ steps.build.outputs.version }}
     strategy:
       max-parallel: 4
       matrix:
@@ -25,16 +29,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Build
+        id: build
         run: ./scripts/build.sh
+        env:
+          ENV_OUTPUT_VAR: ${{ (matrix.python-version == '3.10' && 'GITHUB_OUTPUT') || '' }}
       - name: Archive build files (Python 3.10 only)
-        if: ${{ success() && matrix.python-version == '3.10' }}
+        if: ${{ success() && steps.build.outputs.build-artifacts != '' }}
         uses: actions/upload-artifact@v3
         with:
           if-no-files-found: error
           name: build-artifacts
-          path: |
-            .cache/coverage.lcov
-            dist/
+          path: ${{ steps.build.outputs.build-artifacts }}
 
   coverage:
     name: Report coverage to coveralls.io
@@ -50,4 +55,4 @@ jobs:
       - name: Report to Coveralls
         uses: coverallsapp/github-action@v2
         with:
-          path-to-lcov: .cache/coverage.lcov
+          path-to-lcov: ${{ needs.build.outputs.coverage-lcov }}

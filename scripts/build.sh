@@ -67,4 +67,24 @@ echo "===Building package==="
 poetry build
 
 echo
+echo "===Calculate checksums==="
+(cd dist && set +f && sha256sum *) > .cache/sha256sum.txt
+
+if [[ ! -z "${ENV_OUTPUT_VAR:-}" ]]; then
+  echo
+  echo "===Generating output variables for CI==="
+  END=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+  cat <<EOF | tee "${!ENV_OUTPUT_VAR}"
+hashes=$(base64 -w0 < .cache/sha256sum.txt)
+version=$(poetry version -s)
+coverage-lcov=.cache/coverage.lcov
+build-artifacts<<$END
+.cache/coverage.lcov
+.cache/sha256sum.txt
+dist/
+$END
+EOF
+fi
+
+echo
 echo "Build complete"
