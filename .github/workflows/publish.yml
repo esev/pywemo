@@ -32,20 +32,16 @@ jobs:
     name: Publish SLSA provenance
     needs: [build, check]
     permissions:
-      # Needed to detect the GitHub Actions environment
+      # Needed to detect the GitHub Actions environment.
       actions: read
-      # Needed to create the provenance via GitHub OIDC
+      # Needed to create the provenance via GitHub OIDC.
       id-token: write
-      # Needed to create and upload to GitHub Releases
-      contents: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.5.0
     with:
       # SHA-256 hashes of the Python distributions.
       base64-subjects: ${{ needs.build.outputs.hashes }}
       # Provenance file name.
       provenance-name: pywemo-${{ needs.build.outputs.version }}.intoto.jsonl
-      # Uploads the provenance file to the GitHub Release.
-      upload-assets: true
 
   assets:
     name: Publish release assets
@@ -60,8 +56,14 @@ jobs:
         with:
           name: dist
           path: dist
+      - name: Download provenance
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.provenance.outputs.provenance-name }}
+          path: dist
       - name: Output hashes
-        run: echo "${{ needs.build.outputs.hashes }}" | base64 -d > dist/sha256sum.txt
+        working-directory: dist
+        run: echo "${{ needs.build.outputs.hashes }}" | base64 -d > "pywemo-${{ needs.build.outputs.version }}.sha256sum.txt"
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
