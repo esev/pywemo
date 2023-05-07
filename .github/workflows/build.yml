@@ -6,6 +6,13 @@ on:
     - main
     - pywemo_esev
   workflow_call:
+    outputs:
+      hashes:
+        description: "base64 encoded sha256 hashes of dist files"
+        value: ${{ jobs.build.outputs.hashes }}
+      version:
+        description: "Version of built module"
+        value: ${{ jobs.build.outputs.version }}
 
 permissions: {}  # No permissions needed for this workflow.
 
@@ -14,7 +21,6 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     outputs:
-      coverage-lcov: ${{ steps.build.outputs.coverage-lcov }}
       hashes: ${{ steps.build.outputs.hashes }}
       version: ${{ steps.build.outputs.version }}
     strategy:
@@ -32,27 +38,17 @@ jobs:
         id: build
         run: ./scripts/build.sh
         env:
-          ENV_OUTPUT_VAR: ${{ (matrix.python-version == '3.10' && 'GITHUB_OUTPUT') || '' }}
-      - name: Archive build files (Python 3.10 only)
-        if: ${{ success() && steps.build.outputs.build-artifacts != '' }}
+          OUTPUT_ENV_VAR: ${{ (matrix.python-version == '3.10' && 'GITHUB_OUTPUT') || '' }}
+      # The next two steps only run if OUTPUT_ENV_VAR (above) has a value.
+      - name: Archive build artifacts
+        if: ${{ success() && steps.build.outputs.version }}
         uses: actions/upload-artifact@v3
         with:
           if-no-files-found: error
-          name: build-artifacts
-          path: ${{ steps.build.outputs.build-artifacts }}
-
-  coverage:
-    name: Report coverage to coveralls.io
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: build-artifacts
+          name: dist
+          path: dist/
       - name: Report to Coveralls
+        if: ${{ success() && steps.build.outputs.coverage-lcov }}
         uses: coverallsapp/github-action@v2
         with:
-          path-to-lcov: ${{ needs.build.outputs.coverage-lcov }}
+          path-to-lcov: ${{ steps.build.outputs.coverage-lcov }}
