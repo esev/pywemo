@@ -33,7 +33,9 @@ jobs:
     needs: [build, check]
     permissions:
       # Needed to upload assets to the Github release.
-      contents: write  # TODO: Find a way to remove this.
+      # TODO: Find a way to remove this:
+      #   https://github.com/slsa-framework/slsa-github-generator/issues/2044
+      contents: write  
       # Needed to detect the GitHub Actions environment.
       actions: read
       # Needed to create the provenance via GitHub OIDC.
@@ -47,7 +49,7 @@ jobs:
 
   sigstore:
     name: Generate Sigstore signatures
-    needs: [build, check, slsa]
+    needs: [build, check]
     runs-on: ubuntu-latest
     permissions:
       # For Sigstore provenance.
