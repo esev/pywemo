@@ -7,9 +7,6 @@ on:
     - pywemo_esev
   workflow_call:
     outputs:
-      hashes:
-        description: "base64 encoded sha256 hashes of dist files"
-        value: ${{ jobs.build.outputs.hashes }}
       version:
         description: "Version of built module"
         value: ${{ jobs.build.outputs.version }}
@@ -21,7 +18,6 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     outputs:
-      hashes: ${{ steps.build.outputs.hashes }}
       version: ${{ steps.build.outputs.version }}
     strategy:
       max-parallel: 4
@@ -39,7 +35,7 @@ jobs:
         run: ./scripts/build.sh
         env:
           OUTPUT_ENV_VAR: ${{ (matrix.python-version == '3.10' && 'GITHUB_OUTPUT') || '' }}
-      # The next two steps only run if OUTPUT_ENV_VAR (above) has a value.
+      # The following steps only run if OUTPUT_ENV_VAR (above) has a value.
       - name: Archive build artifacts
         if: ${{ success() && steps.build.outputs.version }}
         uses: actions/upload-artifact@v3

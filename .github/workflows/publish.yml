@@ -25,12 +25,35 @@ jobs:
           echo "TAG: $GITHUB_REF_NAME"
           echo "VERSION: $BUILD_VERSION"
           if [[ "$GITHUB_REF_NAME" != "$BUILD_VERSION" ]]; then exit 1; fi
-      - name: Verify checksums match
-        run: echo "${{ needs.build.outputs.hashes }}" | base64 -d | sha256sum -c || exit 1
+
+  hash:
+    name: Generate SHA256 hashes
+    needs: [build, check]
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist
+      - name: Hash dist files
+        id: hash
+        working-directory: dist
+        run: |
+          sha256sum * | tee "pywemo-${{ needs.build.outputs.version }}.sha256sum.txt"
+          echo "hashes=$(sha256sum * | base64 -w0)" | tee -a "$GITHUB_OUTPUT"
+      - name: Archive hashes
+        uses: actions/upload-artifact@v3
+        with:
+          if-no-files-found: error
+          name: hashes
+          path: dist/pywemo-${{ needs.build.outputs.version }}.sha256sum.txt
 
   slsa:
     name: Generate SLSA provenance
-    needs: [build, check]
+    needs: [build, hash]
     permissions:
       # Needed to upload assets to the Github release.
       # TODO: Find a way to remove this:
@@ -43,13 +66,13 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.5.0
     with:
       # SHA-256 hashes of the Python distributions.
-      base64-subjects: ${{ needs.build.outputs.hashes }}
+      base64-subjects: ${{ needs.hash.outputs.hashes }}
       # Provenance file name.
-      provenance-name: pywemo-${{ needs.build.outputs.version }}.intoto.jsonl
+      provenance-name: provenance-pywemo-${{ needs.build.outputs.version }}.intoto.jsonl
 
   sigstore:
     name: Generate Sigstore signatures
-    needs: [build, check]
+    needs: [build, hash]
     runs-on: ubuntu-latest
     permissions:
       # For Sigstore provenance.
@@ -57,22 +80,15 @@ jobs:
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v3
-        with:
-          name: dist
-          path: dist
-      - name: Output hashes
-        working-directory: dist
-        run: echo "${{ needs.build.outputs.hashes }}" | base64 -d > "pywemo-${{ needs.build.outputs.version }}.sha256sum.txt"
       - name: Sign the release
         uses: sigstore/gh-action-sigstore-python@v1.2.3
         with:
-          inputs: ./dist/*
+          inputs: ./dist/* ./hashes/*
           upload-signing-artifacts: true
-          bundle-only: true
 
   assets:
     name: Publish Release assets
-    needs: [build, slsa, sigstore]
+    needs: [build, hash, slsa, sigstore]
     runs-on: ubuntu-latest
     environment: release
     permissions:
@@ -84,7 +100,12 @@ jobs:
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ github.ref_name }} ./${{ needs.slsa.outputs.provenance-name }}/* ./signing-artifacts-sigstore/* --repo ${{ github.repository }}
+        run: |
+          gh release upload ${{ github.ref_name }} --repo ${{ github.repository }} \
+            ./dist/* \
+            ./hashes/* \
+            ./${{ needs.slsa.outputs.provenance-name }}/* \
+            ./signing-artifacts-sigstore/*.sigstore
 
   pypi:
     name: Publish to PyPi

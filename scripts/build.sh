@@ -69,7 +69,6 @@ poetry build
 if [[ ! -z "${OUTPUT_ENV_VAR:-}" ]]; then
   echo
   echo "===Generating output variables for CI==="
-  echo "hashes=$(cd dist && set +f && sha256sum * | base64 -w0)" | tee -a "${!OUTPUT_ENV_VAR}"
   echo "version=$(poetry version -s)" | tee -a "${!OUTPUT_ENV_VAR}"
   echo "coverage-lcov=$(coverage debug config | sed -ne 's/^.*lcov_output: \(.*\)$/\1/p')" | tee -a "${!OUTPUT_ENV_VAR}"
 fi
