@@ -104,7 +104,7 @@ jobs:
           gh release upload ${{ github.ref_name }} --repo ${{ github.repository }} \
             ./dist/* \
             ./hashes/* \
-            ./${{ needs.slsa.outputs.provenance-name }}/* \
+            ./${{ needs.slsa.outputs.provenance-name }}/*.intoto.jsonl \
             ./signing-artifacts-sigstore/*/*.sigstore
 
   pypi:
