@@ -105,7 +105,7 @@ jobs:
             ./dist/* \
             ./hashes/* \
             ./${{ needs.slsa.outputs.provenance-name }}/* \
-            ./signing-artifacts-sigstore/*.sigstore
+            ./signing-artifacts-sigstore/*/*.sigstore
 
   pypi:
     name: Publish to PyPi
