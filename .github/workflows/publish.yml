@@ -29,7 +29,7 @@ jobs:
         run: echo "${{ needs.build.outputs.hashes }}" | base64 -d | sha256sum -c || exit 1
 
   slsa:
-    name: Publish SLSA provenance
+    name: Generate SLSA provenance
     needs: [build, check]
     permissions:
       # Needed to upload assets to the Github release.
@@ -46,7 +46,7 @@ jobs:
       provenance-name: pywemo-${{ needs.build.outputs.version }}.intoto.jsonl
 
   sigstore:
-    name: Publish Sigstore signatures
+    name: Generate Sigstore signatures
     needs: [build, check, slsa]
     runs-on: ubuntu-latest
     permissions:
@@ -82,7 +82,7 @@ jobs:
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload ${{ github.ref_name }} ./*.intoto.jsonl/* ./signing-artifacts.*/* --repo ${{ github.repository }}
+        run: gh release upload ${{ github.ref_name }} ./${{ needs.slsa.outputs.provenance-name }}/* ./signing-artifacts-sigstore/* --repo ${{ github.repository }}
 
   pypi:
     name: Publish to PyPi
