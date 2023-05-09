@@ -1,15 +1,15 @@
 // Replace ${VARIABLES} in the RELEASE_NOTES_TEMPLATE.md file.
 // Used by .github/workflows/publish.yml.
-import { readFile } from 'node:fs/promises';
+const fsp = require('fs').promises;
 
 module.exports = async ({github, context, process}) => {
     const fileOpts = { encoding: 'utf8' };
-    let template = await readFile(process.env.TEMPLATE_FILE, fileOpts);
+    let template = await fsp.readFile(process.env.TEMPLATE_FILE, fileOpts);
     for (const [key, value] of Object.entries(process.env)) {
         template = template.replaceAll(`\${${key}}`, value);
     }
 
-    let hashes = await readFile(process.env.SHA256SUM_TXT, fileOpts);
+    let hashes = await fsp.readFile(process.env.SHA256SUM_TXT, fileOpts);
     hashes = hashes.trim()
     template = template.replace('${SHA256SUM}', hashes);
 
