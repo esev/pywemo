@@ -95,6 +95,8 @@ jobs:
       # Needed to run "gh release upload".
       contents: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Download build artifacts
         uses: actions/download-artifact@v3
       - name: Upload release assets
@@ -106,6 +108,16 @@ jobs:
             ./hashes/* \
             ./${{ needs.slsa.outputs.provenance-name }}/*.intoto.jsonl \
             ./signing-artifacts-sigstore/*/*.sigstore
+      - name: Update release text
+        env:
+          TEMPLATE_FILE: ./.github/RELEASE_NOTES_TEMPLATE.md
+          SHA256SUM_TXT: ./hashes/pywemo-${{ needs.build.outputs.version }}.sha256sum.txt
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const update = require('./.github/update_release_notes.js')
+            const result = await update({github, context, process});
+            console.log(result);
 
   pypi:
     name: Publish to PyPi
