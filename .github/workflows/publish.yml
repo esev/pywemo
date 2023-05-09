@@ -123,15 +123,15 @@ jobs:
         with:
           script: |
             const fsp = require('fs').promises;
-            let template = await fsp.readFile(process.env.TEMPLATE_FILE, { encoding: 'utf8' });
+            let body = await fsp.readFile(process.env.TEMPLATE_FILE, { encoding: 'utf8' });
             for (const [key, value] of Object.entries(process.env)) {
-                template = template.replaceAll(`\${${key}}`, value);
+                body = body.replaceAll(`\${${key}}`, value);
             }
 
             await github.rest.repos.updateRelease({
                 ...context.repo,
                 release_id: process.env.RELEASE_ID,
-                body: template.replace('${BODY}', body),
+                body: body,
             });
 
   pypi:
