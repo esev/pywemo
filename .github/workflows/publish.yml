@@ -108,16 +108,31 @@ jobs:
             ./hashes/* \
             ./${{ needs.slsa.outputs.provenance-name }}/*.intoto.jsonl \
             ./signing-artifacts-sigstore/*/*.sigstore
+      - name: Add SHA256SUM environment variable
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "SHA256SUM<<$EOF" >> "$GITHUB_ENV"
+          cat ./hashes/*.sha256sum.txt >> "$GITHUB_ENV"
+          echo "$EOF" >> "$GITHUB_ENV"
       - name: Update release text
         env:
+          BODY: ${{ github.event.release.body || '' }}
+          RELEASE_ID: ${{ github.event.release.id }}
           TEMPLATE_FILE: ./.github/RELEASE_NOTES_TEMPLATE.md
-          SHA256SUM_TXT: ./hashes/pywemo-${{ needs.build.outputs.version }}.sha256sum.txt
         uses: actions/github-script@v6
         with:
           script: |
-            const update = require('./.github/update_release_notes.js')
-            const result = await update({github, context, process});
-            console.log(result);
+            const fsp = require('fs').promises;
+            let template = await fsp.readFile(process.env.TEMPLATE_FILE, { encoding: 'utf8' });
+            for (const [key, value] of Object.entries(process.env)) {
+                template = template.replaceAll(`\${${key}}`, value);
+            }
+
+            await github.rest.repos.updateRelease({
+                ...context.repo,
+                release_id: process.env.RELEASE_ID,
+                body: template.replace('${BODY}', body),
+            });
 
   pypi:
     name: Publish to PyPi
