@@ -52,7 +52,7 @@ pre-commit = "^3.3"
 poetry-pre-commit-plugin = "^0.1.2"
 
 [tool.poetry.group.bootstrap.dependencies]
-poetry = ">=1.2.0"
+poetry = "1.4.1"
 
 [tool.coverage]
   [tool.coverage.run]
