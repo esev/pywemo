@@ -1,4 +1,4 @@
-FROM gcr.io/oss-fuzz-base/base-builder-python:v1@sha256:c534d211cc36cc71d8a9d82827aeca4889eb7c422f3568fabaea58f34d004ebc
+FROM gcr.io/oss-fuzz-base/base-builder-python:v1@sha256:1e35dcf0ab8b5b09259e88cad2a814b356f0fdab0a8fb0bfdef24f3837a4337f
 RUN apt-get update && \
     apt-get install -y make autoconf automake libtool pip
 COPY . $SRC/pywemo
